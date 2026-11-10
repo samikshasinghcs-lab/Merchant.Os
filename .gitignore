@@ -1,0 +1,14 @@
+.env
+*.db
+__pycache__/
+.venv/
+.pytest_cache/
+evidence_uploads/
+
+frontend/node_modules/
+frontend/dist/
+.env
+merchantos_identity.db
+merchantos.db
+evidence_uploads/
+__pycache__/

@@ -1,0 +1,19 @@
+MerchantOS v7.0 — API Contract & Input Integrity
+
+Python tests:
+92 passed, 1 skipped
+
+Python compilation:
+PASS (python -m compileall -q app tests)
+
+Frontend production build:
+NOT RUN — frontend/node_modules absent in this build environment.
+
+External integration tests:
+NOT RUN — no PayPal Sandbox credentials or deployed Render environment were provided.
+
+PostgreSQL integration / RLS:
+NOT RUN — no live PostgreSQL service was available for this verification run.
+
+Release classification:
+Source-level API hardening checkpoint. Not certified for multi-tenant production or live-money execution. Keep the single-merchant pilot restriction and financial execution disabled.

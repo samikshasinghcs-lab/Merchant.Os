@@ -1,0 +1,144 @@
+{
+  "info": {
+    "name": "MerchantOS \u2014 PayPal Sandbox",
+    "description": "Phase 1 API verification collection. All requests target the MerchantOS backend; configure baseUrl and accessToken. Financial writes are Sandbox-only and some require explicit human approval payloads.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "invoiceId",
+      "value": ""
+    },
+    {
+      "key": "setupTokenId",
+      "value": ""
+    },
+    {
+      "key": "customerId",
+      "value": "sandbox_customer_01"
+    }
+  ],
+  "item": [
+    {
+      "name": "Capabilities",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/paypal/capabilities"
+      }
+    },
+    {
+      "name": "Create invoice draft",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"invoice\": {\n    \"detail\": {\"currency_code\": \"USD\", \"note\": \"MerchantOS Sandbox test invoice\"},\n    \"invoicer\": {\"name\": {\"given_name\": \"MerchantOS\", \"surname\": \"Demo\"}},\n    \"primary_recipients\": [{\"billing_info\": {\"email_address\": \"buyer@example.test\"}}],\n    \"items\": [{\"name\": \"Sandbox test item\", \"quantity\": \"1\", \"unit_amount\": {\"currency_code\": \"USD\", \"value\": \"10.00\"}}]\n  }\n}"
+        },
+        "url": "{{baseUrl}}/api/paypal/invoices"
+      }
+    },
+    {
+      "name": "Show invoice",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/paypal/invoices/{{invoiceId}}"
+      }
+    },
+    {
+      "name": "Send invoice (explicit approval)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"human_approved\": true, \"confirmation\": \"SEND INVOICE TO CUSTOMER\"}"
+        },
+        "url": "{{baseUrl}}/api/paypal/invoices/{{invoiceId}}/send"
+      }
+    },
+    {
+      "name": "Search transactions (last 7 days)",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/paypal/transactions?start_date={{startDate}}&end_date={{endDate}}&page_size=50&page=1"
+      }
+    },
+    {
+      "name": "Create Vault setup token (customer consent)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"customer_id\": \"{{customerId}}\", \"customer_consent\": true}"
+        },
+        "url": "{{baseUrl}}/api/paypal/vault/setup-tokens"
+      }
+    },
+    {
+      "name": "Finalize approved Vault token (merchant confirmation)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"customer_id\": \"{{customerId}}\", \"setup_token_id\": \"{{setupTokenId}}\", \"human_approved\": true, \"confirmation\": \"FINALIZE CUSTOMER-APPROVED VAULT TOKEN\"}"
+        },
+        "url": "{{baseUrl}}/api/paypal/vault/payment-tokens"
+      }
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const end = new Date();",
+          "const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);",
+          "pm.collectionVariables.set('startDate', start.toISOString().replace('.000', ''));",
+          "pm.collectionVariables.set('endDate', end.toISOString().replace('.000', ''));"
+        ]
+      }
+    }
+  ]
+}

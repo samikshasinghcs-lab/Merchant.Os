@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "ag-mcp": {
+      "command": "npx",
+      "args": [
+        "ag-mcp"
+      ]
+    },
+    "bryntum": {
+      "url": "https://mcp.bryntum.com"
+    }
+  }
+}

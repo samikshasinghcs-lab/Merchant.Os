@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: merchantos
+      POSTGRES_USER: merchantos
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-this-local-password}
+    volumes: [merchantos_pg:/var/lib/postgresql/data]
+    healthcheck: {test: ["CMD-SHELL", "pg_isready -U merchantos -d merchantos"], interval: 5s, timeout: 5s, retries: 10}
+  api:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://merchantos:${POSTGRES_PASSWORD:-change-this-local-password}@postgres:5432/merchantos
+      IDENTITY_DATABASE_URL: postgresql+psycopg://merchantos:${POSTGRES_PASSWORD:-change-this-local-password}@postgres:5432/merchantos
+      DATABASE_PATH: /app/data/merchantos.db
+      AUTH_REQUIRED: "true"
+    depends_on: {postgres: {condition: service_healthy}}
+    ports: ["8000:8000"]
+    volumes: [merchantos_uploads:/app/evidence_uploads, merchantos_legacy:/app/data]
+  web:
+    build: ./frontend
+    depends_on: [api]
+    ports: ["8080:80"]
+volumes:
+  merchantos_pg:
+  merchantos_uploads:
+  merchantos_legacy:

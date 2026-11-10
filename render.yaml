@@ -1,0 +1,69 @@
+# Deployment blueprint starter. Configure secrets in Render dashboard; never commit .env.
+services:
+  - type: web
+    name: merchantos-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /ready
+    disk:
+      name: merchantos-domain-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: MERCHANTOS_SINGLE_TENANT_PILOT
+        value: "true"
+      - key: DATABASE_PATH
+        value: /var/data/merchantos.db
+      - key: DEMO_MODE
+        value: "false"
+      - key: SEED_DEMO_DATA
+        value: "false"
+      - key: AUTH_REQUIRED
+        value: "true"
+      - key: PAYPAL_MODE
+        value: sandbox
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase: {name: merchantos-db, property: connectionString}
+      - key: PUBLIC_APP_URL
+        sync: false
+      - key: RENDER_API_KEY
+        sync: false
+      - key: WORKFLOW_SERVICE_SLUG
+        value: merchantos-events
+      - key: MERCHANTOS_WORKFLOW_SHARED_SECRET
+        sync: false
+      - key: MERCHANTOS_CREDENTIALS_KEY
+        sync: false
+      - key: PAYPAL_EXECUTION_ENABLED
+        value: "false"
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+  - type: web
+    name: merchantos-web
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    plan: starter
+  - type: workflow
+    name: merchantos-events
+    runtime: python
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.render_workflows
+    envVars:
+      - key: PUBLIC_APP_URL
+        sync: false
+      - key: MERCHANTOS_WORKFLOW_SHARED_SECRET
+        sync: false
+
+databases:
+  - name: merchantos-db
+    plan: basic-256mb
