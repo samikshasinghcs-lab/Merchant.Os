@@ -14,25 +14,30 @@ concurrency:
 jobs:
   merge-and-test:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Check out current main
+      - name: Checkout main
         uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
 
-      - name: Set up Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Create isolated integration branch
+      - name: Create integration branch
         shell: bash
         run: |
           BRANCH="integration/merchantos-v7.3.2-${GITHUB_RUN_ID}"
+
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
           git switch -c "$BRANCH"
+
           echo "INTEGRATION_BRANCH=$BRANCH" >> "$GITHUB_ENV"
 
       - name: Safely extract and merge archive
@@ -40,148 +45,202 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path, PurePosixPath
-          import os
           import stat
           import zipfile
 
-          archive = Path("MerchantOS-v7.3.2-Security-Privacy-Hardened-Full.zip")
+          archive = Path(
+              "MerchantOS-v7.3.2-Security-Privacy-Hardened-Full.zip"
+          )
+
           if not archive.is_file():
-              raise SystemExit(
-                  f"Archive not found at repository root: {archive.name}. "
-                  "Check the uploaded filename."
-              )
+              raise SystemExit("MerchantOS archive not found.")
 
           repo = Path.cwd().resolve()
-          added, updated, unchanged, skipped = [], [], [], []
+
+          added = []
+          updated = []
+          unchanged = []
+          skipped = []
 
           with zipfile.ZipFile(archive) as zf:
-              entries = [i for i in zf.infolist() if not i.is_dir()]
+
+              entries = [
+                  item for item in zf.infolist()
+                  if not item.is_dir()
+              ]
+
               if not entries:
                   raise SystemExit("Archive is empty.")
 
-              # Reject unsafe paths and symlinks before writing anything.
               normalized = []
               roots = set()
-              for info in entries:
-                  raw = info.filename.replace("\\", "/")
-                  p = PurePosixPath(raw)
-                  mode = (info.external_attr >> 16) & 0xFFFF
-                  if p.is_absolute() or ".." in p.parts or not p.parts:
-                      raise SystemExit(f"Unsafe archive path rejected: {raw}")
-                  if stat.S_ISLNK(mode):
-                      raise SystemExit(f"Symlink entry rejected: {raw}")
-                  roots.add(p.parts[0])
-                  normalized.append((info, p))
 
-              # This release ZIP is expected to contain one wrapper directory.
+              # Validate every archive path before extraction.
+              for info in entries:
+
+                  raw = info.filename.replace("\\", "/")
+                  path = PurePosixPath(raw)
+
+                  mode = (info.external_attr >> 16) & 0xFFFF
+
+                  if (
+                      path.is_absolute()
+                      or ".." in path.parts
+                      or not path.parts
+                  ):
+                      raise SystemExit(
+                          f"Unsafe archive path: {raw}"
+                      )
+
+                  if stat.S_ISLNK(mode):
+                      raise SystemExit(
+                          f"Symlink rejected: {raw}"
+                      )
+
+                  roots.add(path.parts[0])
+                  normalized.append((info, path))
+
               if len(roots) != 1:
                   raise SystemExit(
-                      f"Expected one top-level wrapper directory; found: {sorted(roots)}"
+                      f"Unexpected archive roots: {roots}"
                   )
+
               wrapper = next(iter(roots))
 
-              # Validate the archive layout before merging.
-              for info, p in normalized:
-                  if p.parts[0] != wrapper or len(p.parts) < 2:
-                      raise SystemExit(f"Unexpected archive layout: {info.filename}")
+              for info, path in normalized:
 
-              for info, p in normalized:
-                  relative = PurePosixPath(*p.parts[1:])
+                  if (
+                      path.parts[0] != wrapper
+                      or len(path.parts) < 2
+                  ):
+                      raise SystemExit(
+                          f"Unexpected archive layout: {info.filename}"
+                      )
+
+              # Merge archive contents into repository root.
+              for info, path in normalized:
+
+                  relative = PurePosixPath(*path.parts[1:])
                   rel = relative.as_posix()
 
-                  # Never import Git metadata or overwrite the workflow currently
-                  # executing. Preserve the repository's existing CI workflows.
+                  # Never import Git metadata.
                   if rel == ".git" or rel.startswith(".git/"):
                       skipped.append(rel)
                       continue
+
+                  # Preserve existing GitHub Actions workflows.
+                  # Avoid GitHub's restricted workflow-token permission.
                   if rel.startswith(".github/workflows/"):
-                      target = repo / rel
-                      if target.exists():
-                          skipped.append(rel + " (existing workflow preserved)")
-                          continue
-                      # Only allow the new security audit workflow to be added.
-                      if rel != ".github/workflows/security-audit.yml":
-                          skipped.append(rel + " (workflow not allowlisted)")
-                          continue
+                      skipped.append(
+                          rel + " (workflow preserved)"
+                      )
+                      continue
 
-                  target = (repo / Path(*relative.parts)).resolve()
+                  target = (
+                      repo / Path(*relative.parts)
+                  ).resolve()
+
                   if repo not in target.parents:
-                      raise SystemExit(f"Path escaped repository: {rel}")
+                      raise SystemExit(
+                          f"Path escaped repository: {rel}"
+                      )
 
-                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.parent.mkdir(
+                      parents=True,
+                      exist_ok=True
+                  )
+
                   data = zf.read(info)
+
                   if target.exists():
-                      if target.is_symlink() or not target.is_file():
-                          raise SystemExit(f"Refusing to overwrite non-regular file: {rel}")
-                      old = target.read_bytes()
-                      if old == data:
+
+                      if (
+                          target.is_symlink()
+                          or not target.is_file()
+                      ):
+                          raise SystemExit(
+                              f"Unsafe overwrite: {rel}"
+                          )
+
+                      if target.read_bytes() == data:
                           unchanged.append(rel)
                           continue
+
                       updated.append(rel)
+
                   else:
                       added.append(rel)
 
                   target.write_bytes(data)
 
-          # Remove the uploaded archive from the integration branch after merging.
+          # Remove uploaded ZIP from integration branch.
           archive.unlink()
 
           report = [
-              "# MerchantOS v7.3.2 archive merge report",
+              "# MerchantOS v7.3.2 Merge Report",
               "",
-              f"- Added files: {len(added)}",
-              f"- Updated files: {len(updated)}",
-              f"- Unchanged files: {len(unchanged)}",
-              f"- Skipped entries: {len(skipped)}",
+              f"- Added: {len(added)}",
+              f"- Updated: {len(updated)}",
+              f"- Unchanged: {len(unchanged)}",
+              f"- Skipped: {len(skipped)}",
               "",
-              "## Updated existing files",
-              *([f"- `{x}`" for x in updated] or ["- None"]),
+              "## Updated files",
+              *[f"- {x}" for x in updated],
               "",
               "## Added files",
-              *([f"- `{x}`" for x in added] or ["- None"]),
+              *[f"- {x}" for x in added],
               "",
-              "## Preserved/skipped entries",
-              *([f"- `{x}`" for x in skipped] or ["- None"]),
-              "",
-              "The archive was merged on an isolated branch. The default branch was not modified.",
+              "## Skipped files",
+              *[f"- {x}" for x in skipped],
           ]
-          Path("MERCHANTOS_V7_3_2_MERGE_REPORT.md").write_text(
-              "\n".join(report) + "\n", encoding="utf-8"
+
+          Path(
+              "MERCHANTOS_V7_3_2_MERGE_REPORT.md"
+          ).write_text(
+              "\n".join(report) + "\n",
+              encoding="utf-8"
           )
+
           print("\n".join(report))
           PY
 
-      - name: Install Python dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
       - name: Compile backend
-        run: python -m compileall -q app
+        run: |
+          python -m compileall -q app
 
-      - name: Run backend test suite
-        run: python -m pytest -q
+      - name: Run tests
+        run: |
+          python -m pytest -q
 
-      - name: Commit merged project on integration branch
+      - name: Commit integration
         shell: bash
         run: |
           git add -A
+
           if git diff --cached --quiet; then
-            echo "No changes to commit."
+            echo "No changes detected."
             exit 1
           fi
-          git commit -m "Integrate MerchantOS v7.3.2 security and privacy release"
+
+          git commit -m \
+            "Integrate MerchantOS v7.3.2 security and privacy"
+
           git push --set-upstream origin "$INTEGRATION_BRANCH"
 
-      - name: Open pull request (main remains unchanged)
+      - name: Create Pull Request
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh pr create \
             --base main \
             --head "$INTEGRATION_BRANCH" \
-            --title "Integrate MerchantOS v7.3.2 security and privacy release" \
-            --body "Automated archive integration on an isolated branch. The workflow safely extracted the uploaded ZIP, preserved existing GitHub Actions workflows, removed the ZIP from this branch, compiled the backend, and ran the Python test suite. Review the file diff and merge report before merging. The main branch was not modified by this workflow."
+            --title "MerchantOS v7.3.2 Integration" \
+            --body "Automated integration of MerchantOS v7.3.2. Review the merge report, security changes and test results before merging. Main remains unchanged."
 
       - name: Upload merge report
         if: always()
