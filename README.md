@@ -1,5 +1,7 @@
 # MerchantOS
 
+> **v7.3.2 security/privacy hardening checkpoint:** Production readiness now rejects evidence-upload paths that resolve to or sit beneath the web-served static directory, rejects a symlink as the configured evidence directory, and checks restrictive permissions on an existing evidence directory. See [`docs/SECURITY_PRIVACY_ASSURANCE_v7_3_2.md`](docs/SECURITY_PRIVACY_ASSURANCE_v7_3_2.md) for implemented controls, limitations, and deployment requirements. A dedicated GitHub Actions security audit runs dependency vulnerability and Bandit static analysis.
+
 **From complaint to refund.** MerchantOS reads a seller's customer reviews, matches each complaint to the real PayPal order behind it, and proposes a refund. The merchant approves, PayPal executes, and every step is written to an audit log. It then shows which batch or product is behind the complaints.
 
 Built for the PayPal AI Hackathon 2026.
@@ -117,3 +119,21 @@ Phase 4 adds a dedicated tenant-credential PayPal adapter and a durable, tenant-
 ## Phase 5 — Dispute Intelligence & Evidence Operations
 
 Phase 5 adds deterministic PayPal dispute deadline monitoring and evidence-package readiness checks. It verifies requested evidence types, order linkage, transaction identifiers when available, file ownership, MIME/size limits and file integrity before a human reviews a submission. It also records ambiguous PayPal submission outcomes as `UNKNOWN` and blocks blind duplicate submissions. See `docs/PHASE_5_IMPLEMENTATION.md` for API details and limitations. Dispute records remain in legacy SQLite storage and are not yet tenant-isolated; do not expose the legacy dispute routes unauthenticated or treat this checkpoint as production-ready multi-tenant dispute handling.
+
+---
+
+## DeepTech Intelligence & Assurance Layer (experimental)
+
+MerchantOS now includes an isolated `app/deeptech/` package with deterministic engineering primitives for:
+
+- Canonical transaction fingerprints (SHA-256 and optional HMAC).
+- Merchant/currency-local robust anomaly scoring with human-readable signals.
+- Exact-identifier transaction relationship graphs and graph metrics.
+- Seeded Monte Carlo financial scenario simulation.
+- Observational association screening with explicit non-causality caveats.
+- Tamper-evident hash-chain audit prototypes.
+- Model evaluation, probability calibration, temporal splits, feature drift, model cards, and privacy-aware exports.
+
+This layer is **experimental and advisory**. It does not authorize or execute payments, does not claim trained fraud AI, and is not a production digital twin. See [`docs/deeptech/ARCHITECTURE.md`](docs/deeptech/ARCHITECTURE.md) and [`docs/deeptech/DEMO_AND_VALIDATION.md`](docs/deeptech/DEMO_AND_VALIDATION.md).
+
+Run its synthetic demonstration with `python -m app.deeptech.demo` and its tests with `python -m pytest -q`.

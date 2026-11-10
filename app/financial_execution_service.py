@@ -8,6 +8,7 @@ from .tenant_db import tenant_session
 from .completion_models import FinancialApprovalRequest, FinancialExecution
 from .financial_controls import approval_digest
 from .paypal_tenant_adapter import TenantPayPalAdapter, TenantPayPalError
+from .execution_state_machine import transition_execution
 
 class ExecutionError(RuntimeError):
     pass
@@ -78,7 +79,7 @@ def execute_approved_refund(*, tenant_id: str, approval_id: str, actor_id: str,
             # success. The provider may nevertheless have accepted the write.
             with tenant_session(tenant_id) as s:
                 item=s.get(FinancialExecution,execution_id)
-                item.status="UNKNOWN"; item.error_code="MALFORMED_PROVIDER_RESPONSE"
+                transition_execution(item, "UNKNOWN"); item.error_code="MALFORMED_PROVIDER_RESPONSE"
                 item.provider_refund_id=refund_id or None; item.provider_status=provider_status[:40] or "UNKNOWN"
                 item.completed_at=datetime.now(timezone.utc)
             return {"execution_id":execution_id,"status":"UNKNOWN","provider":"PAYPAL",
@@ -86,14 +87,15 @@ def execute_approved_refund(*, tenant_id: str, approval_id: str, actor_id: str,
                     "automatic_retry":False,"replay":False}
         with tenant_session(tenant_id) as s:
             item=s.get(FinancialExecution,execution_id)
-            item.status="SUCCEEDED"; item.provider_refund_id=refund_id
+            transition_execution(item, "SUCCEEDED" if provider_status == "COMPLETED" else "SUBMITTED")
+            item.provider_refund_id=refund_id
             item.provider_status=provider_status[:40]
             item.completed_at=datetime.now(timezone.utc)
             # PayPal accepted the refund operation. Settlement/final status must still
             # be read from PayPal; PENDING is not reported as a completed refund.
             approved=s.scalar(select(FinancialApprovalRequest).where(
                 FinancialApprovalRequest.id==approval_id,FinancialApprovalRequest.tenant_id==tenant_id))
-            approved.status="EXECUTED"
+            approved.status="EXECUTED" if provider_status == "COMPLETED" else "SUBMITTED"
         return {"execution_id":execution_id,"status":"SUCCEEDED" if provider_status=="COMPLETED" else "SUBMITTED",
                 "provider":"PAYPAL","environment":environment,"provider_refund_id":refund_id,
                 "provider_status":provider_status,"replay":False,
@@ -101,7 +103,7 @@ def execute_approved_refund(*, tenant_id: str, approval_id: str, actor_id: str,
     except TenantPayPalError as exc:
         with tenant_session(tenant_id) as s:
             item=s.get(FinancialExecution,execution_id)
-            item.status="UNKNOWN" if exc.ambiguous else "FAILED"
+            transition_execution(item, "UNKNOWN" if exc.ambiguous else "FAILED")
             item.error_code="PROVIDER_OUTCOME_UNKNOWN" if exc.ambiguous else f"PAYPAL_HTTP_{exc.status_code or 'ERROR'}"
             item.completed_at=datetime.now(timezone.utc)
         return {"execution_id":execution_id,"status":"UNKNOWN" if exc.ambiguous else "FAILED",
@@ -112,4 +114,4 @@ def _execution_result(item, replay=False):
     return {"execution_id":item.id,"status":item.status,"provider":item.provider,
             "environment":item.environment,"provider_refund_id":item.provider_refund_id,
             "provider_status":item.provider_status,"replay":replay,
-            "automatic_retry":False if item.status in {"RESERVED","UNKNOWN","SUCCEEDED"} else None}
+            "automatic_retry":False if item.status in {"RESERVED","SUBMITTED","RECONCILING","UNKNOWN","SUCCEEDED"} else None}

@@ -1,4 +1,4 @@
-# MerchantOS security and tenancy status — v7.1
+# MerchantOS security and tenancy status — v7.3.2
 
 ## Implemented in source
 
@@ -42,3 +42,12 @@ This repository contains native PostgreSQL RLS policies and a Hyperdrive integra
 8. Complete an independent security assessment before production financial operations.
 
 No claim of Cloudflare deployment, full application tenant isolation, prompt-injection immunity, formal compliance, penetration testing, or production certification is made.
+
+
+## v7.3.2 security/privacy hardening
+
+- Production readiness now rejects evidence storage at the web-served static root or anywhere beneath it, including a symlink used as the configured evidence directory.
+- Existing evidence directories must not grant group/world permissions; the upload writer continues to enforce restrictive directory/file modes.
+- Added regression tests for static-root, nested-static, and symlink path configurations.
+- Added `.github/workflows/security-audit.yml` for dependency vulnerability auditing (`pip-audit`) and Python static analysis (`Bandit`). The workflow must pass on the actual GitHub branch before merge.
+- See `docs/SECURITY_PRIVACY_ASSURANCE_v7_3_2.md` for the security/privacy control inventory and explicit non-production limitations.

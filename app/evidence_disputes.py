@@ -3,7 +3,7 @@
 Integrity hashes and metadata inspection do NOT prove that a document's claims are true.
 """
 from __future__ import annotations
-import hashlib, json, mimetypes, re, uuid
+import hashlib, json, mimetypes, re, uuid, os, stat
 from datetime import datetime, timezone
 from pathlib import Path
 from .config import UPLOAD_DIR, MAX_EVIDENCE_FILE_BYTES
@@ -45,17 +45,24 @@ def inspect_bytes(data, mime):
                 result["text_extraction"] = "encrypted_pdf"
             else:
                 pages = []
+                page_count = len(reader.pages)
+                if page_count > 500:
+                    raise ValueError("PDF page count exceeds the inspection safety limit")
                 for page in reader.pages[:30]: pages.append((page.extract_text() or "")[:12000])
-                result.update({"text_extraction": "pypdf", "page_count": len(reader.pages), "text_preview": "\n".join(pages)[:12000]})
+                result.update({"text_extraction": "pypdf", "page_count": page_count, "text_preview": "\n".join(pages)[:12000]})
         except ImportError: result["text_extraction"] = "unavailable_install_pypdf"
         except Exception as exc: raise ValueError("PDF structure validation failed") from exc
     elif mime.startswith("image/"):
         try:
             from PIL import Image
             import io
-            im = Image.open(io.BytesIO(data)); im.verify()
             im = Image.open(io.BytesIO(data))
-            result.update({"image_format": im.format, "width": im.width, "height": im.height, "metadata_keys": sorted(list(im.info.keys()))[:30], "text_extraction": "image_metadata_only"})
+            width, height = im.size
+            if width <= 0 or height <= 0 or width * height > 40_000_000:
+                raise ValueError("Image dimensions exceed the inspection safety limit")
+            im.verify()
+            im = Image.open(io.BytesIO(data))
+            result.update({"image_format": im.format, "width": width, "height": height, "metadata_keys": sorted(list(im.info.keys()))[:30], "text_extraction": "image_metadata_only"})
         except ImportError: result["text_extraction"] = "unavailable_install_pillow"
         except Exception as exc: raise ValueError("Image structure validation failed") from exc
     else:
@@ -75,11 +82,32 @@ def store_upload(order_id, evidence_type, description, filename, data):
     inspection = inspect_bytes(data, mime)
     eid = "EV-" + uuid.uuid4().hex[:12].upper()
     fid = "EF-" + uuid.uuid4().hex[:12].upper()
-    root = Path(UPLOAD_DIR).resolve(); root.mkdir(parents=True, exist_ok=True)
+    configured_root = Path(UPLOAD_DIR).expanduser()
+    configured_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if configured_root.is_symlink():
+        raise ValueError("Evidence storage directory must not be a symbolic link")
+    root = configured_root.resolve()
+    # Evidence is private application data: directory 0700, file 0600.
+    try:
+        os.chmod(root, 0o700)
+    except OSError as exc:
+        raise ValueError("Evidence storage permissions could not be hardened") from exc
     stored = fid + ext
-    path = (root / stored).resolve()
-    if root not in path.parents: raise ValueError("Invalid storage path")
-    path.write_bytes(data)
+    path = root / stored
+    if root not in path.parents or path.exists() or path.is_symlink():
+        raise ValueError("Invalid or conflicting storage path")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    fd = os.open(path, flags, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
     created = utcnow()
     provenance = {"source": "merchant_upload", "original_filename": original, "merchant_attested": False, "uploaded_at": created}
     try:
@@ -101,7 +129,7 @@ def verify_file(file_id):
     if not row: return None
     path=(Path(UPLOAD_DIR).resolve()/row["stored_name"]).resolve()
     root=Path(UPLOAD_DIR).resolve()
-    if root not in path.parents or not path.is_file(): return {"file_id":file_id,"integrity":"MISSING_OR_INVALID_PATH","authenticity":"NOT_ESTABLISHED"}
+    if root not in path.parents or path.is_symlink() or not path.is_file(): return {"file_id":file_id,"integrity":"MISSING_OR_INVALID_PATH","authenticity":"NOT_ESTABLISHED"}
     digest=hashlib.sha256(path.read_bytes()).hexdigest()
     intact=digest==row["sha256"]
     status="HASH_MATCH" if intact else "HASH_MISMATCH"
