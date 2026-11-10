@@ -13,6 +13,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.REPO_TOKEN }}
+          fetch-depth: 0
 
       - name: Extract and restore MerchantOS
         shell: bash
@@ -23,22 +26,26 @@ jobs:
 
           echo "Checking uploaded archive..."
 
-          test -f "$ARCHIVE" || {
-            echo "ERROR: ZIP archive not found."
+          if [ ! -f "$ARCHIVE" ]; then
+            echo "ERROR: Archive not found."
             exit 1
-          }
+          fi
 
           mkdir -p /tmp/merchantos
 
           unzip -q "$ARCHIVE" -d /tmp/merchantos
 
-          echo "Verifying project structure..."
+          echo "Verifying project..."
 
           test -f /tmp/merchantos/README.md
           test -d /tmp/merchantos/app
           test -d /tmp/merchantos/frontend
+          test -d /tmp/merchantos/tests
+          test -d /tmp/merchantos/.github/workflows
 
-          echo "Removing incorrectly flattened files..."
+          echo "Project verification passed."
+
+          echo "Removing flattened files..."
 
           git rm -r --ignore-unmatch .
 
@@ -48,7 +55,13 @@ jobs:
 
           rm -f "$ARCHIVE"
 
-          echo "Preparing commit..."
+          echo "Checking restored structure..."
+
+          test -f README.md
+          test -d app
+          test -d frontend
+          test -d tests
+          test -f .github/workflows/ci.yml
 
           git add -A
 
@@ -56,8 +69,8 @@ jobs:
           git config user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git commit -m "Restore MerchantOS v8.0 directory structure"
+          git commit -m "Restore MerchantOS v8.0 project structure"
 
-          git push
+          git push origin HEAD:main
 
-          echo "MerchantOS structure restored successfully!"
+          echo "MerchantOS restoration completed!"
