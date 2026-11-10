@@ -1,10 +1,12 @@
-FROM node:22-alpine AS build
-WORKDIR /web
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
-FROM nginx:1.27-alpine
-COPY --from=build /web/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app ./app
+COPY seed ./seed
+COPY alembic ./alembic
+COPY scripts ./scripts
+COPY alembic.ini README.md LICENSE ./
+EXPOSE 8000
+CMD ["sh","-c","alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
