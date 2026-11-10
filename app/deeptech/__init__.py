@@ -18,3 +18,8 @@ __all__ = [
     "transaction_fingerprint", "feature_vector", "RobustAnomalyDetector", "AnomalyConfig",
     "TransactionGraph", "FinancialDigitalTwin", "HashChain", "AuditEvent",
 ]
+
+# Explicit orchestration seam for callers that have already authorized a
+# merchant-scoped history/observation dataset.
+from .integration import MerchantScopeError, analyze_merchant_transactions
+__all__ += ["MerchantScopeError", "analyze_merchant_transactions"]
