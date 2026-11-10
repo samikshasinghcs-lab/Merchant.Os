@@ -1,0 +1,63 @@
+name: Restore MerchantOS Structure
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract and restore MerchantOS
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ARCHIVE="MerchantOS_v8_0_FIXED_GITHUB_UPLOAD.zip"
+
+          echo "Checking uploaded archive..."
+
+          test -f "$ARCHIVE" || {
+            echo "ERROR: ZIP archive not found."
+            exit 1
+          }
+
+          mkdir -p /tmp/merchantos
+
+          unzip -q "$ARCHIVE" -d /tmp/merchantos
+
+          echo "Verifying project structure..."
+
+          test -f /tmp/merchantos/README.md
+          test -d /tmp/merchantos/app
+          test -d /tmp/merchantos/frontend
+
+          echo "Removing incorrectly flattened files..."
+
+          git rm -r --ignore-unmatch .
+
+          echo "Restoring original directory structure..."
+
+          cp -a /tmp/merchantos/. .
+
+          rm -f "$ARCHIVE"
+
+          echo "Preparing commit..."
+
+          git add -A
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git commit -m "Restore MerchantOS v8.0 directory structure"
+
+          git push
+
+          echo "MerchantOS structure restored successfully!"
