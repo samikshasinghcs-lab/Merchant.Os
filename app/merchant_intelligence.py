@@ -90,7 +90,8 @@ def _vectors(texts):
         pass
     # Hosted embedding fallback when configured; vectors are still compared locally.
     key=os.getenv('OPENAI_API_KEY')
-    if key:
+    external_review_processing = os.getenv('MERCHANTOS_ALLOW_EXTERNAL_REVIEW_PROCESSING', 'false').strip().lower() in {'1','true','yes','on'}
+    if key and external_review_processing:
         try:
             base=os.getenv('OPENAI_BASE_URL','https://api.openai.com/v1')
             model=os.getenv('MERCHANTOS_EMBEDDING_API_MODEL','text-embedding-3-small')
@@ -156,7 +157,8 @@ def explain_cluster(cluster_id):
     # Optional LLM explanation: no tools are exposed; reviews are explicitly labelled
     # untrusted data, separate from system instructions, and tightly bounded.
     key=os.getenv('OPENAI_API_KEY'); model=os.getenv('MERCHANTOS_LLM_MODEL','gpt-4o-mini'); base=os.getenv('OPENAI_BASE_URL','https://api.openai.com/v1')
-    if key:
+    external_review_processing = os.getenv('MERCHANTOS_ALLOW_EXTERNAL_REVIEW_PROCESSING', 'false').strip().lower() in {'1','true','yes','on'}
+    if key and external_review_processing:
         try:
             data_envelope=review_context(cluster_id=cluster_id,review_count=len(rows),sentiment_counts=sentiment_counts,average_sentiment_score=facts['average_sentiment_score'],examples=texts[:5])
             system_instruction=(
@@ -173,7 +175,7 @@ def explain_cluster(cluster_id):
             return {'facts':facts,'explanation':explanation,'provider':'configured_llm','warning':'Advisory text only. Customer reviews are untrusted data; numeric facts are computed by MerchantOS. No tools are exposed to this model call.'}
         except Exception:
             return {'facts':facts,'explanation':'LLM explanation unavailable. Inspect the representative reviews and calculated sentiment distribution.','provider':'llm_unavailable','warning':'The optional explanation service failed or returned an invalid response. Computed facts remain available.'}
-    return {'facts':facts,'explanation':f"This group contains {len(rows)} reviews. Sentiment distribution: {sentiment_counts}. Representative language: {' | '.join(texts[:2])}",'provider':'computed_fallback','warning':'No LLM credentials configured. This is a deterministic summary, not an LLM-generated explanation.'}
+    return {'facts':facts,'explanation':f"This group contains {len(rows)} reviews. Sentiment distribution: {sentiment_counts}. Representative language: {' | '.join(texts[:2])}",'provider':'computed_fallback','warning':'External review processing is disabled or no LLM credentials are configured. Review text remains on the local processing path.'}
 
 def customers():
     with db() as c:

@@ -1,0 +1,72 @@
+MerchantOS v7.3 — DeepTech expansion manifest
+
+BASE
+- Based on the user's uploaded Merchant.Os-main GitHub snapshot.
+- Includes the prior v7.2 financial execution state-machine checkpoint and v7.3
+  DeepTech package already present in the supplied working baseline.
+- No second repository or new product identity is created.
+
+NEW DEEPTECH PACKAGE
+- app/deeptech/: deterministic transaction intelligence, statistical analysis,
+  graph analysis, financial simulation, causal research, cryptographic audit,
+  privacy helpers, model evaluation/governance, and supporting research tools.
+- tests/deeptech/: focused unit, boundary, contract, and regression tests.
+- The original uploaded GitHub snapshot did not contain app/deeptech/ or
+  tests/deeptech/. All lines in those directories are new relative to that
+  uploaded snapshot.
+
+LINE COUNT (Python files under app/deeptech/ and tests/deeptech/)
+- Python files: 106
+- Physical source lines: 5,836
+- Non-blank, non-comment source lines: 5,218
+- Counting method: physical lines are splitlines(); executable/source count
+  includes every non-empty line except lines whose first non-whitespace
+  character is '#'. Docstrings are included as source text. This is a size
+  metric, not a measure of quality or production maturity.
+
+ADDITIONAL MODULES IN THIS CHECKPOINT
+- app/deeptech/research/conformal_prediction.py
+  Split and groupwise conformal intervals with finite-sample order statistics.
+- app/deeptech/research/temporal_validation.py
+  Purged walk-forward splits, label maturity, and temporal leakage audits.
+- app/deeptech/research/explainability.py
+  Exact linear decompositions and deterministic permutation importance.
+- app/deeptech/research/resilience.py
+  Process-local circuit breaker, bounded backoff decisions, and tenant-scoped
+  in-memory dead-letter quarantine.
+
+VALIDATION PERFORMED
+- Full pytest suite: 221 passed, 1 skipped.
+- Python compileall: passed.
+- Synthetic DeepTech demonstration: passed.
+- Demo audit chain verification: valid.
+- Demo uses synthetic data only.
+
+IMPORTANT LIMITATIONS
+- These research modules are decision-support primitives and are not wired
+  into payment execution or refund authorization.
+- Conformal coverage relies on exchangeability and representative calibration
+  data; it is not a guarantee of per-merchant conditional coverage.
+- Temporal validation requires the caller to supply correct event/availability
+  timestamps and an embargo appropriate to each label horizon.
+- Permutation importance is predictive reliance, not causal attribution.
+- CircuitBreaker and DeadLetterQueue are in-memory, process-local utilities;
+  they are not distributed coordination or durable queues.
+- The financial digital twin is a simplified scenario simulator, not an
+  accounting ledger, audited forecast, or production financial guarantee.
+- No production-readiness or provider certification is claimed.
+
+V7.3.2 SECURITY / PRIVACY HARDENING
+- Production readiness now rejects evidence upload storage located at or under
+  the web-served static directory, a symlink configured as the evidence root,
+  and existing evidence directories with group/world permissions.
+- Added regression tests for static-root, nested-static, and symlink evidence
+  storage configurations.
+- Added docs/SECURITY_PRIVACY_ASSURANCE_v7_3_2.md with a control inventory,
+  data/privacy limitations, deployment gates, and open requirements.
+- Added .github/workflows/security-audit.yml for pip-audit dependency scanning
+  and Bandit static analysis. These scans must pass in GitHub Actions; they
+  were not executed in this local build environment.
+- Full local Python test suite: 236 passed, 1 skipped.
+- Python compileall: passed.
+- Frontend build: not run locally because frontend/node_modules is absent.

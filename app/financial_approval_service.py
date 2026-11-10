@@ -117,7 +117,7 @@ def reconcile_refund_approval(*, tenant_id: str, approval_id: str, adapter=None)
             FinancialExecution.tenant_id == tenant_id,
             FinancialApprovalRequest.tenant_id == tenant_id,
             FinancialExecution.created_at >= day_start,
-            FinancialExecution.status.in_(["RESERVED", "SUCCEEDED", "UNKNOWN"]),
+            FinancialExecution.status.in_(["RESERVED", "SUBMITTED", "RECONCILING", "SUCCEEDED", "UNKNOWN"]),
             FinancialApprovalRequest.currency == currency,
         )).all()
     daily_total = sum((Decimal(str(value)) for value in rows), Decimal("0.00"))

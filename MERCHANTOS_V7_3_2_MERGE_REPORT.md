@@ -1,0 +1,142 @@
+# MerchantOS v7.3.2 Merge Report
+
+- Added: 118
+- Updated: 9
+- Unchanged: 125
+- Skipped: 3
+
+## Updated files
+- .env.example
+- README.md
+- SECURITY.md
+- app/evidence_disputes.py
+- app/financial_approval_service.py
+- app/financial_execution_service.py
+- app/merchant_intelligence.py
+- app/release_readiness.py
+- tests/test_release_readiness.py
+
+## Added files
+- DEEPTECH_BUILD_MANIFEST.txt
+- RELEASE_NOTES_v7.3_DEEPTECH.md
+- SECURITY_PRIVACY_HARDENING_v7_3_2.md
+- app/deeptech/__init__.py
+- app/deeptech/anomaly.py
+- app/deeptech/assurance.py
+- app/deeptech/benchmark.py
+- app/deeptech/causal.py
+- app/deeptech/demo.py
+- app/deeptech/digital_twin.py
+- app/deeptech/drift.py
+- app/deeptech/evaluation.py
+- app/deeptech/fingerprints.py
+- app/deeptech/graph.py
+- app/deeptech/models.py
+- app/deeptech/privacy.py
+- app/deeptech/registry.py
+- app/deeptech/research/__init__.py
+- app/deeptech/research/abuse_controls.py
+- app/deeptech/research/alerts.py
+- app/deeptech/research/anomaly.py
+- app/deeptech/research/assurance.py
+- app/deeptech/research/attribution.py
+- app/deeptech/research/backtesting.py
+- app/deeptech/research/bayesian.py
+- app/deeptech/research/benchmark.py
+- app/deeptech/research/cashflow.py
+- app/deeptech/research/causal.py
+- app/deeptech/research/changepoint.py
+- app/deeptech/research/clustering.py
+- app/deeptech/research/cohort.py
+- app/deeptech/research/conformal_prediction.py
+- app/deeptech/research/constraints.py
+- app/deeptech/research/counterfactual.py
+- app/deeptech/research/dataset.py
+- app/deeptech/research/decision_log.py
+- app/deeptech/research/demand.py
+- app/deeptech/research/dispute_triage.py
+- app/deeptech/research/distributions.py
+- app/deeptech/research/drift.py
+- app/deeptech/research/drilldown.py
+- app/deeptech/research/evaluation.py
+- app/deeptech/research/events.py
+- app/deeptech/research/experiments.py
+- app/deeptech/research/explainability.py
+- app/deeptech/research/fairness.py
+- app/deeptech/research/feature_store.py
+- app/deeptech/research/features.py
+- app/deeptech/research/financial_ratios.py
+- app/deeptech/research/forecasting.py
+- app/deeptech/research/fraud_patterns.py
+- app/deeptech/research/governance.py
+- app/deeptech/research/graph.py
+- app/deeptech/research/graph_community.py
+- app/deeptech/research/graph_metrics.py
+- app/deeptech/research/graph_patterns.py
+- app/deeptech/research/idempotency.py
+- app/deeptech/research/inventory.py
+- app/deeptech/research/ledger.py
+- app/deeptech/research/matrix.py
+- app/deeptech/research/merchant_segments.py
+- app/deeptech/research/model_monitor.py
+- app/deeptech/research/money.py
+- app/deeptech/research/monitoring.py
+- app/deeptech/research/monte_carlo.py
+- app/deeptech/research/optimization.py
+- app/deeptech/research/outbox.py
+- app/deeptech/research/pipeline.py
+- app/deeptech/research/portfolio.py
+- app/deeptech/research/pricing.py
+- app/deeptech/research/privacy.py
+- app/deeptech/research/privacy_budget.py
+- app/deeptech/research/propensity.py
+- app/deeptech/research/reconciliation.py
+- app/deeptech/research/reconciliation_rules.py
+- app/deeptech/research/recovery.py
+- app/deeptech/research/refund_exposure.py
+- app/deeptech/research/regression.py
+- app/deeptech/research/reporting.py
+- app/deeptech/research/resilience.py
+- app/deeptech/research/risk.py
+- app/deeptech/research/risk_network.py
+- app/deeptech/research/rules.py
+- app/deeptech/research/scenarios.py
+- app/deeptech/research/scoring.py
+- app/deeptech/research/seasonality.py
+- app/deeptech/research/simulation.py
+- app/deeptech/research/statistics.py
+- app/deeptech/research/survival.py
+- app/deeptech/research/temporal_validation.py
+- app/deeptech/research/timeseries.py
+- app/deeptech/research/types.py
+- app/deeptech/research/unit_tests_support.py
+- app/deeptech/research/validation.py
+- app/deeptech/research/velocity.py
+- app/deeptech/research/working_capital.py
+- app/deeptech/statistics.py
+- app/execution_state_machine.py
+- docs/RELEASE_NOTES_v7_2.md
+- docs/SECURITY_PRIVACY_ASSURANCE_v7_3_2.md
+- docs/deeptech/ARCHITECTURE.md
+- docs/deeptech/DEMO_AND_VALIDATION.md
+- docs/deeptech/V7_3_1_RESEARCH_EXPANSION.md
+- merchantos.db
+- tests/deeptech/conftest.py
+- tests/deeptech/test_assurance_causal.py
+- tests/deeptech/test_conformal_prediction.py
+- tests/deeptech/test_evaluation_ops.py
+- tests/deeptech/test_explainability.py
+- tests/deeptech/test_graph_twin.py
+- tests/deeptech/test_models_fingerprints.py
+- tests/deeptech/test_privacy_budget_hardening.py
+- tests/deeptech/test_research_contracts.py
+- tests/deeptech/test_resilience.py
+- tests/deeptech/test_statistics_anomaly.py
+- tests/deeptech/test_temporal_validation.py
+- tests/test_execution_state_machine.py
+- tests/test_external_review_privacy_gate.py
+
+## Skipped files
+- .github/workflows/ci.yml (workflow preserved)
+- .github/workflows/merchantos-ci.yml (workflow preserved)
+- .github/workflows/security-audit.yml (workflow preserved)

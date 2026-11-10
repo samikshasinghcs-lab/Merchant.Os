@@ -44,6 +44,35 @@ def readiness_report() -> dict:
           "Legacy single-tenant domain SQLite must be on the mounted /var/data persistent disk.")
     check("single_tenant_restriction", _truthy("MERCHANTOS_SINGLE_TENANT_PILOT"),
           "Explicitly acknowledge the single-merchant pilot restriction.")
+    evidence_dir = os.getenv("EVIDENCE_UPLOAD_DIR", "")
+    evidence_path = os.path.realpath(evidence_dir) if evidence_dir else ""
+    static_root = os.path.realpath(os.path.join(os.path.dirname(__file__), "static"))
+    try:
+        evidence_is_inside_static = bool(evidence_path) and os.path.commonpath([static_root, evidence_path]) == static_root
+    except ValueError:
+        evidence_is_inside_static = True
+    evidence_is_symlink = bool(evidence_dir) and os.path.islink(evidence_dir)
+    check("private_evidence_storage_path", bool(evidence_path) and os.path.isabs(evidence_dir)
+          and not evidence_is_inside_static and not evidence_is_symlink,
+          "Set EVIDENCE_UPLOAD_DIR to an absolute private persistent path outside the web-served static directory; the configured directory must not be a symlink.")
+    if evidence_path and os.path.isdir(evidence_path):
+        try:
+            evidence_mode = os.stat(evidence_path).st_mode
+            private_permissions = (evidence_mode & 0o077) == 0
+        except OSError:
+            private_permissions = False
+        check("private_evidence_storage_permissions", private_permissions,
+              "Existing evidence storage must not grant group or world permissions (recommended mode 0700).")
+    else:
+        check("private_evidence_storage_permissions", True,
+              "Storage permissions will be enforced as 0700 when the evidence directory is created.")
+    external_review_processing = _truthy("MERCHANTOS_ALLOW_EXTERNAL_REVIEW_PROCESSING")
+    if external_review_processing:
+        check("external_review_processing_ack", _truthy("MERCHANTOS_EXTERNAL_REVIEW_DPA_ACK")
+              and _truthy("MERCHANTOS_EXTERNAL_REVIEW_REDACTION_ACK"),
+              "External review processing requires documented processor/DPA review and data-redaction approval.")
+    else:
+        check("external_review_processing", True, "External review text is not sent to hosted embedding or LLM APIs.")
     public_url = os.getenv("PUBLIC_APP_URL", "")
     parsed = urlparse(public_url)
     check("https_public_url", parsed.scheme == "https" and bool(parsed.netloc),
