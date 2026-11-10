@@ -1,0 +1,44 @@
+name: Restore MerchantOS Structure
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore project
+        run: |
+          ARCHIVE="MerchantOS_v8_0_FIXED_GITHUB_UPLOAD.zip"
+
+          test -f "$ARCHIVE" || {
+            echo "Archive not found"
+            exit 1
+          }
+
+          mkdir /tmp/merchantos
+          unzip -q "$ARCHIVE" -d /tmp/merchantos
+
+          test -f /tmp/merchantos/README.md
+          test -d /tmp/merchantos/app
+          test -d /tmp/merchantos/frontend
+
+          git rm -r --ignore-unmatch .
+
+          cp -a /tmp/merchantos/. .
+
+          rm -f "$ARCHIVE"
+
+          git add -A
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git commit -m "Restore MerchantOS v8.0 project structure"
+          git push
