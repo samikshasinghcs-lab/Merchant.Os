@@ -1,0 +1,174 @@
+name: Integrate MerchantOS v7.3.3 final archive
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: merchantos-v7-3-3-final-integration
+  cancel-in-progress: false
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Create isolated integration branch
+        shell: bash
+        run: |
+          BRANCH="integration/merchantos-v7.3.3-final-${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          echo "INTEGRATION_BRANCH=$BRANCH" >> "$GITHUB_ENV"
+
+      - name: Validate and merge archive safely
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path, PurePosixPath
+          import stat
+          import zipfile
+
+          archive = Path("MerchantOS-v7.3.3-FINAL-Full.zip")
+          if not archive.is_file():
+              raise SystemExit(f"Missing archive at repository root: {archive.name}")
+
+          repo = Path.cwd().resolve()
+          added, updated, unchanged, skipped = [], [], [], []
+
+          with zipfile.ZipFile(archive) as zf:
+              if zf.testzip() is not None:
+                  raise SystemExit("ZIP CRC validation failed")
+              entries = [i for i in zf.infolist() if not i.is_dir()]
+              if not entries:
+                  raise SystemExit("Archive is empty")
+
+              parsed = []
+              roots = set()
+              for info in entries:
+                  raw = info.filename.replace("\\", "/")
+                  path = PurePosixPath(raw)
+                  mode = (info.external_attr >> 16) & 0xFFFF
+                  if path.is_absolute() or ".." in path.parts or not path.parts:
+                      raise SystemExit(f"Unsafe archive path: {raw}")
+                  if stat.S_ISLNK(mode):
+                      raise SystemExit(f"Symlink entry rejected: {raw}")
+                  roots.add(path.parts[0])
+                  parsed.append((info, path))
+
+              if roots != {"Merchant.Os-main"}:
+                  raise SystemExit(f"Unexpected archive root(s): {sorted(roots)}")
+
+              # Validate all paths before writing any archive content.
+              for info, path in parsed:
+                  if len(path.parts) < 2 or path.parts[0] != "Merchant.Os-main":
+                      raise SystemExit(f"Unexpected archive layout: {info.filename}")
+
+              for info, path in parsed:
+                  relative = PurePosixPath(*path.parts[1:])
+                  rel = relative.as_posix()
+
+                  # Preserve repository-controlled workflow files. The default
+                  # GITHUB_TOKEN cannot safely add/update workflow files here.
+                  if rel == ".git" or rel.startswith(".git/"):
+                      skipped.append(rel)
+                      continue
+                  if rel.startswith(".github/workflows/"):
+                      skipped.append(rel + " (existing workflow directory preserved)")
+                      continue
+
+                  target = (repo / Path(*relative.parts)).resolve()
+                  if repo not in target.parents:
+                      raise SystemExit(f"Path escapes repository: {rel}")
+                  if target.is_symlink():
+                      raise SystemExit(f"Refusing to write through repository symlink: {rel}")
+
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  data = zf.read(info)
+                  if target.exists():
+                      if not target.is_file():
+                          raise SystemExit(f"Refusing to overwrite non-file: {rel}")
+                      if target.read_bytes() == data:
+                          unchanged.append(rel)
+                          continue
+                      updated.append(rel)
+                  else:
+                      added.append(rel)
+                  target.write_bytes(data)
+
+          # Remove archive from the integration branch, not from main.
+          archive.unlink()
+
+          report = [
+              "# MerchantOS v7.3.3 final integration report", "",
+              f"- Added: {len(added)}",
+              f"- Updated: {len(updated)}",
+              f"- Unchanged: {len(unchanged)}",
+              f"- Skipped: {len(skipped)}", "",
+              "## Updated files", *([f"- `{x}`" for x in updated] or ["- None"]), "",
+              "## Added files", *([f"- `{x}`" for x in added] or ["- None"]), "",
+              "## Skipped files", *([f"- `{x}`" for x in skipped] or ["- None"]), "",
+              "Main was not modified by this workflow. Review this report and the PR diff before merging."
+          ]
+          Path("MERCHANTOS_V7_3_3_FINAL_MERGE_REPORT.md").write_text(
+              "\n".join(report) + "\n", encoding="utf-8"
+          )
+          print("\n".join(report))
+          PY
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Compile backend
+        run: python -m compileall -q app
+
+      - name: Run backend tests
+        run: python -m pytest -q
+
+      - name: Commit and push integration branch
+        shell: bash
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to integrate"; exit 1
+          fi
+          git commit -m "Integrate MerchantOS v7.3.3 final deep-tech release"
+          git push --set-upstream origin "$INTEGRATION_BRANCH"
+
+      - name: Publish pull-request instructions
+        shell: bash
+        run: |
+          COMPARE_URL="https://github.com/${GITHUB_REPOSITORY}/compare/main...${INTEGRATION_BRANCH}?expand=1"
+          {
+            echo "## Integration branch pushed successfully"
+            echo
+            echo "Main has not been changed. Review the branch and create the PR manually:"
+            echo
+            echo "$COMPARE_URL"
+            echo
+            echo "Review the merge report and all changed/deleted files before merging."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Compare URL: $COMPARE_URL"
+
+      - name: Upload merge report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: merchantos-v7.3.3-final-merge-report
+          path: MERCHANTOS_V7_3_3_FINAL_MERGE_REPORT.md
+          if-no-files-found: ignore
