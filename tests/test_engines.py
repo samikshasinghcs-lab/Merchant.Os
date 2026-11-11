@@ -34,7 +34,7 @@ def test_backend_vertical_slice(tmp_path, monkeypatch):
 
         proposal_id = proposals[0]["id"]
         approval = {"human_approved": True, "confirmation": "AUTHORIZE REFUND"}
-approved = client.post(f"/api/refunds/{proposal_id}/approve", json=approval)
+        approved = client.post(f"/api/refunds/{proposal_id}/approve", json=approval)
         assert approved.status_code == 200
         assert approved.json()["status"] == "SIMULATED"
         repeated = client.post(f"/api/refunds/{proposal_id}/approve", json=approval)
