@@ -290,19 +290,31 @@ async function inspect(id) {
 // ==========================================
 
 async function approve(id) {
-    if (!confirm(
-        'Approve this refund? Server-side caps and eligibility checks apply.'
-    )) return;
+    const confirmed = confirm(
+        'You are authorizing a refund. Continue?'
+    );
+
+    if (!confirmed) return;
+
+    const phrase = prompt(
+        'Type AUTHORIZE REFUND to confirm:'
+    );
+
+    if (phrase !== 'AUTHORIZE REFUND') {
+        alert('Authorization cancelled.');
+        return;
+    }
 
     try {
-        let x = await api('/refunds/' + id + '/approve', {
-            method: 'POST'
+        const x = await api('/refunds/' + id + '/approve', {
+            method: 'POST',
+            body: JSON.stringify({
+                human_approved: true,
+                confirmation: phrase
+            })
         });
 
-        alert(
-            'Result: ' + x.status +
-            '\n' + JSON.stringify(x.paypal)
-        );
+        alert('Refund result: ' + x.status);
 
         await load();
 
