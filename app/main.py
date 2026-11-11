@@ -234,7 +234,26 @@ def create_proposals(body:dict):
  return {"proposals":x,"note":"Only exact order+customer matches are proposed. Review evidence before approval."}
 @app.get("/api/refunds")
 def list_refunds():
- with db() as c:return [dict(x) for x in c.execute("SELECT * FROM refunds ORDER BY created_at DESC")]
+    with db() as c:
+        rows = c.execute(
+            "SELECT * FROM refunds ORDER BY created_at DESC"
+        ).fetchall()
+
+    results = []
+
+    for row in rows:
+        item = dict(row)
+        risk = risk_for_order(item["order_id"])
+
+        item["risk"] = risk
+        item["risk_score"] = risk["score"] if risk else None
+        item["risk_severity"] = risk["severity"] if risk else "INSUFFICIENT_DATA"
+        item["risk_signals"] = risk["signals"] if risk else []
+        item["risk_baseline_orders"] = risk["baseline_orders"] if risk else 0
+
+        results.append(item)
+
+    return results
 @app.get("/api/refunds/{pid}")
 def refund_investigation(pid: str):
     with db() as c:
