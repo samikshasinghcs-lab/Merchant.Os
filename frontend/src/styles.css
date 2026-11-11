@@ -305,3 +305,81 @@ pre{background:#18221a;color:#dce8d1;border-radius:3px;border:1px solid #2b382b;
 ::selection{background:#d9f36a;color:#101713}
 :root{scrollbar-color:#78866f #101713;scrollbar-width:thin}
 @media(prefers-reduced-motion:reduce){.preview-shell::after,.chart-bars i{animation:none;transform:none}}
+/* MOBILE WORKSPACE FIX */
+
+@media (max-width: 760px) {
+  .sidebar {
+    width: 278px !important;
+    transform: translateX(-102%);
+    z-index: 12;
+  }
+
+  .mobile-open .sidebar {
+    width: 278px !important;
+    transform: translateX(0);
+  }
+
+  .main,
+  .collapsed .main {
+    margin-left: 0 !important;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .collapsed .sidebar {
+    width: 278px !important;
+  }
+
+  .mobile-open .sidebar .brand-copy,
+  .mobile-open .sidebar .workspace-meta,
+  .mobile-open .sidebar .workspace-caret,
+  .mobile-open .sidebar .nav-group-label,
+  .mobile-open .sidebar .nav-item span,
+  .mobile-open .sidebar .sidebar-help span,
+  .mobile-open .sidebar .user-meta,
+  .mobile-open .sidebar .version {
+    display: initial !important;
+  }
+
+  .mobile-open .sidebar .nav-item {
+    justify-content: flex-start;
+    white-space: normal;
+  }
+
+  .mobile-open .sidebar .sidebar-toggle {
+    display: none;
+  }
+
+  .mobile-open .sidebar .mobile-close {
+    display: grid;
+  }
+}
+
+/* Prevent long intelligence records from breaking cards */
+
+.insight,
+.insight > div,
+.insight-list {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.insight > div {
+  flex: 1;
+}
+
+.insight p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.main,
+.content,
+.panel {
+  min-width: 0;
+  max-width: 100%;
+}
+
+body {
+  overflow-x: hidden;
+}
