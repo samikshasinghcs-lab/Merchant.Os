@@ -2,6 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
+      "source": "/api",
+      "destination": "https://merchantos-api-rmz9.onrender.com/api"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://merchantos-api-rmz9.onrender.com/api/:path*"
     },
