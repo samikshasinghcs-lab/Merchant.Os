@@ -898,3 +898,182 @@ table {
         flex-wrap: wrap;
     }
 }
+/* =====================================================
+   MERCHANTOS — WORKFLOW UI
+   ===================================================== */
+
+.mos-record {
+    margin: 20px 0;
+    padding: 20px;
+    border: 1px solid #dfe7df;
+    border-radius: 16px;
+    background: #fbfcfa;
+}
+
+.mos-record-entry {
+    padding: 16px;
+    margin-top: 12px;
+    background: white;
+    border: 1px solid #e4eae4;
+    border-radius: 12px;
+}
+
+.mos-eyebrow {
+    color: #176447;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+.mos-review-list blockquote {
+    margin: 10px 0;
+    padding: 12px 15px;
+    border-left: 3px solid #176447;
+    background: #f4f7f3;
+    border-radius: 0 8px 8px 0;
+    color: #52645a;
+    font-size: 13px;
+}
+
+.mos-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.mos-success {
+    padding: 14px;
+    margin-top: 12px;
+    background: #e4f1e9;
+    color: #176447;
+    border-radius: 10px;
+}
+
+.mos-error {
+    padding: 14px;
+    margin-top: 12px;
+    background: #fbeae8;
+    color: #a63b35;
+    border-radius: 10px;
+}
+
+.mos-agreement {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 15px;
+    margin: 10px 0;
+    border: 1px solid #e4eae4;
+    border-radius: 12px;
+    background: white;
+}
+
+.mos-agreement small {
+    color: #718078;
+}
+
+.mos-milestone-list {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.mos-milestone {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    width: 100%;
+    padding: 14px;
+    background: #f5f8f4;
+    color: #182820;
+    border: 1px solid #dfe7df;
+    box-shadow: none;
+    text-align: left;
+}
+
+.mos-milestone span,
+.mos-milestone small {
+    color: #718078;
+    font-size: 12px;
+}
+
+.mos-milestone.selected {
+    border-color: #176447;
+    background: #e4f1e9;
+}
+
+#pact-workspace .row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+#pact-workspace .row label {
+    flex: 1 1 180px;
+    min-width: 0;
+}
+
+#pact-workspace .row input,
+#pact-workspace .row select {
+    width: 100%;
+}
+
+#pact-workspace .row button {
+    flex: 0 1 auto;
+    min-height: 42px;
+}
+
+#pact-workspace .row button + button {
+    margin-left: 0;
+}
+
+#pact-workspace .row:has(button) {
+    padding: 16px 0;
+}
+
+#pactPaymentResult,
+#pactAgreementDetail,
+#pactIndicators {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-wrap: anywhere;
+}
+
+@media(max-width:600px) {
+    .mos-record {
+        padding: 12px;
+    }
+
+    .mos-record-entry {
+        padding: 12px;
+    }
+
+    .mos-action-row {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .mos-action-row button {
+        width: 100%;
+    }
+
+    #pact-workspace .row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 10px;
+    }
+
+    #pact-workspace .row button {
+        width: 100%;
+    }
+
+    .mos-agreement {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}
