@@ -270,40 +270,104 @@ def refund_investigation(pid: str):
 @app.post("/api/refunds/{pid}/approve")
 def approve(pid, body: dict):
     if body.get("human_approved") is not True:
-        raise HTTPException(
-            403, "Explicit human approval required."
-        )
+        raise HTTPException(403, "Explicit human approval required.")
 
     if body.get("confirmation") != "AUTHORIZE REFUND":
+        raise HTTPException(400, "Type AUTHORIZE REFUND to confirm.")
+
+    if not DEMO and MODE != "sandbox":
         raise HTTPException(
-            400, "Type AUTHORIZE REFUND to confirm."
+            400,
+            "Real PayPal refunds are restricted to Sandbox."
         )
- if not DEMO and MODE != "sandbox":
-  raise HTTPException(400,"Real PayPal refunds are restricted to Sandbox in this checkpoint. Set PAYPAL_MODE=sandbox.")
- with db() as c:
-  p=c.execute("SELECT * FROM refunds WHERE id=?",(pid,)).fetchone()
-  if not p:raise HTTPException(404,"Proposal not found")
-  if p["status"]!="PROPOSED":return {"status":p["status"],"message":"Already processed; no second operation."}
-  if p["amount"]>MAX_REFUND:raise HTTPException(400,"Per-refund cap exceeded")
-  used=c.execute("SELECT COALESCE(SUM(amount),0) FROM refunds WHERE date(created_at)=? AND status IN ('SIMULATED','PENDING','COMPLETED')",(date.today().isoformat(),)).fetchone()[0]
-  if used+p["amount"]>DAILY_CAP:raise HTTPException(400,"Daily cap exceeded")
-  o=c.execute("SELECT * FROM orders WHERE id=?",(p["order_id"],)).fetchone()
-  if not o or o["payment_status"]!="COMPLETED":raise HTTPException(400,"Payment is not captured")
-  prior=c.execute("SELECT COALESCE(SUM(amount),0) FROM refunds WHERE order_id=? AND status IN ('SIMULATED','PENDING','COMPLETED')",(p["order_id"],)).fetchone()[0]
-  if prior+p["amount"]>o["amount"]+0.001:raise HTTPException(400,"Refund exceeds captured amount")
- risk = risk_for_order(p["order_id"])
- log(
-     "REFUND_RISK_ASSESSED",
-     "system",
-     pid,
-     risk if risk else {"status": "INSUFFICIENT_DATA"}
- )
- try:r=refund(p["capture_id"],p["amount"],p["currency"],p["idem"])
- except PayPalError as e:log("REFUND_FAILED","merchant",pid,{"error":str(e)});raise HTTPException(502,str(e))
- ps=r.get("status","UNKNOWN").upper(); status="SIMULATED" if ps=="SIMULATED" else ("COMPLETED" if ps=="COMPLETED" else "PENDING")
- with db() as c:c.execute("UPDATE refunds SET status=?,paypal_id=?,paypal_status=? WHERE id=? AND status='PROPOSED'",(status,r.get("id"),ps,pid))
- log("REFUND_RESULT","merchant",pid,{"status":ps,"paypal_id":r.get("id"),"amount":p["amount"]})
- return {"status":status,"paypal":r,"demo_mode":DEMO}
+
+    with db() as c:
+        p = c.execute(
+            "SELECT * FROM refunds WHERE id=?", (pid,)
+        ).fetchone()
+
+        if not p:
+            raise HTTPException(404, "Proposal not found")
+
+        if p["status"] != "PROPOSED":
+            return {
+                "status": p["status"],
+                "message": "Already processed; no second operation."
+            }
+
+        if p["amount"] > MAX_REFUND:
+            raise HTTPException(400, "Per-refund cap exceeded")
+
+        used = c.execute(
+            """SELECT COALESCE(SUM(amount),0) FROM refunds
+            WHERE date(created_at)=?
+            AND status IN ('SIMULATED','PENDING','COMPLETED')""",
+            (date.today().isoformat(),)
+        ).fetchone()[0]
+
+        if used + p["amount"] > DAILY_CAP:
+            raise HTTPException(400, "Daily cap exceeded")
+
+        o = c.execute(
+            "SELECT * FROM orders WHERE id=?", (p["order_id"],)
+        ).fetchone()
+
+        if not o or o["payment_status"] != "COMPLETED":
+            raise HTTPException(400, "Payment is not captured")
+
+        prior = c.execute(
+            """SELECT COALESCE(SUM(amount),0) FROM refunds
+            WHERE order_id=?
+            AND status IN ('SIMULATED','PENDING','COMPLETED')""",
+            (p["order_id"],)
+        ).fetchone()[0]
+
+        if prior + p["amount"] > o["amount"] + 0.001:
+            raise HTTPException(400, "Refund exceeds captured amount")
+
+    risk = risk_for_order(p["order_id"])
+
+    log(
+        "REFUND_RISK_ASSESSED",
+        "system",
+        pid,
+        risk if risk else {"status": "INSUFFICIENT_DATA"}
+    )
+
+    try:
+        r = refund(
+            p["capture_id"],
+            p["amount"],
+            p["currency"],
+            p["idem"]
+        )
+    except PayPalError as e:
+        log("REFUND_FAILED", "merchant", pid, {"error": str(e)})
+        raise HTTPException(502, str(e))
+
+    ps = r.get("status", "UNKNOWN").upper()
+    status = (
+        "SIMULATED" if ps == "SIMULATED"
+        else "COMPLETED" if ps == "COMPLETED"
+        else "PENDING"
+    )
+
+    with db() as c:
+        c.execute(
+            """UPDATE refunds
+            SET status=?,paypal_id=?,paypal_status=?
+            WHERE id=? AND status='PROPOSED'""",
+            (status, r.get("id"), ps, pid)
+        )
+
+    log(
+        "REFUND_RESULT",
+        "merchant",
+        pid,
+        {"status": ps, "paypal_id": r.get("id"), "amount": p["amount"]}
+    )
+
+    return {"status": status, "paypal": r, "demo_mode": DEMO}
 @app.post("/api/refunds/{pid}/reject")
 def reject(pid):
  with db() as c:
