@@ -13,7 +13,26 @@ MAX_REVIEW_EXAMPLES = 5
 MAX_REVIEW_CHARS = 1500
 MAX_CONTEXT_BYTES = 10_000
 MAX_EXPLANATION_CHARS = 4_000
+def redact_customer_text(value: object) -> str:
+    """Best-effort PII redaction before external AI processing."""
+    text = str(value or "")
 
+    text = re.sub(
+        r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b",
+        "[REDACTED_EMAIL]", text
+    )
+
+    text = re.sub(
+        r"(?<!\w)(?:\+?\d[\d .()-]{7,}\d)(?!\w)",
+        "[REDACTED_PHONE]", text
+    )
+
+    text = re.sub(
+        r"https?://\S+",
+        "[REDACTED_URL]", text
+    )
+
+    return text[:MAX_REVIEW_CHARS]
 
 def review_context(*, cluster_id: str, review_count: int,
                    sentiment_counts: dict, average_sentiment_score: float,
