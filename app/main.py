@@ -266,7 +266,53 @@ def refund_investigation(pid: str):
         evidence=c.execute("SELECT * FROM evidence_items WHERE order_id=?",(row["order_id"],)).fetchall()
         audit_rows=c.execute("SELECT * FROM audit WHERE entity=? ORDER BY id DESC LIMIT 30",(pid,)).fetchall()
     return {"refund":dict(row),"order":dict(order) if order else None,"evidence":[dict(x) for x in evidence],"audit":[dict(x) for x in audit_rows]}
+@app.get("/api/refunds/{pid}/ai-analysis")
+def refund_ai_analysis(pid: str):
+    with db() as c:
+        row = c.execute(
+            "SELECT * FROM refunds WHERE id=?", (pid,)
+        ).fetchone()
 
+        if not row: raise HTTPException(404, "Refund not found")
+
+        order = c.execute(
+            "SELECT * FROM orders WHERE id=?",
+            (row["order_id"],)
+        ).fetchone()
+
+        evidence = c.execute(
+            "SELECT evidence_type, status FROM evidence_items WHERE order_id=?",
+            (row["order_id"],)
+        ).fetchall()
+
+        risk = risk_for_order(row["order_id"])
+
+        facts = {
+        "refund_amount": float(row["amount"]),
+        "currency": row["currency"],
+        "refund_status": row["status"],
+        "payment_status": order["payment_status"] if order else "UNKNOWN",
+        "risk_score": risk["score"] if risk else None,
+        "risk_severity": risk["severity"] if risk else "INSUFFICIENT_DATA",
+        "risk_signals": risk["signals"] if risk else [],
+        "baseline_orders": risk["baseline_orders"] if risk else 0,
+        "evidence_count": len(evidence),
+        "evidence_types": sorted(set(
+            x["evidence_type"] for x in evidence
+        )),
+        "evidence_statuses": sorted(set(
+            x["status"] for x in evidence
+        )),
+    }
+
+    result = explain_refund(facts)
+
+    return {
+        "facts": facts,
+        "ai": result,
+        "financial_action_authorized": False,
+        "human_approval_required": True
+    }
 @app.post("/api/refunds/{pid}/approve")
 def approve(pid, body: dict):
     if body.get("human_approved") is not True:
