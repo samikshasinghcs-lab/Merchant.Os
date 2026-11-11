@@ -609,3 +609,292 @@ footer {
         scroll-behavior: auto !important;
     }
 }
+/* =====================================================
+   MERCHANTOS — MOBILE OVERFLOW & OVERLAP REPAIR
+   ===================================================== */
+
+html,
+body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+body {
+    min-width: 320px;
+}
+
+main,
+section,
+.card,
+.cols,
+.row,
+.metric {
+    min-width: 0;
+    max-width: 100%;
+}
+
+img,
+video,
+iframe,
+canvas {
+    max-width: 100%;
+}
+
+/* Prevent long text from breaking layouts */
+
+h1,
+h2,
+h3,
+p,
+small,
+b,
+strong,
+.row,
+.finding,
+pre {
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+
+/* Buttons and form controls */
+
+button,
+input,
+select,
+textarea {
+    max-width: 100%;
+}
+
+button {
+    white-space: normal;
+    line-height: 1.4;
+}
+
+label {
+    max-width: 100%;
+}
+
+/* Tables */
+
+.scroll {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+table {
+    min-width: 560px;
+}
+
+/* Grid safety */
+
+#merchantosRefundGridSection {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+#refundGrid {
+    width: 100%;
+    min-width: 0;
+}
+
+/* Cards */
+
+.card,
+.metric {
+    overflow-wrap: anywhere;
+}
+
+.cols > *,
+.metrics > * {
+    min-width: 0;
+}
+
+/* Mobile layout */
+
+@media (max-width: 760px) {
+
+    aside {
+        position: relative;
+        top: auto;
+        width: 100%;
+        min-width: 0;
+        height: auto;
+        min-height: 60px;
+        padding: 12px 14px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .logo {
+        flex: 0 0 auto;
+    }
+
+    nav {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        gap: 5px;
+        margin: 0;
+        padding: 5px 0;
+        scrollbar-width: thin;
+    }
+
+    nav a {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    main {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        padding: 22px 14px;
+    }
+
+    header {
+        width: 100%;
+        min-width: 0;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+
+    header > * {
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    h1 {
+        font-size: clamp(28px, 8vw, 38px);
+        letter-spacing: -1.2px;
+        line-height: 1.12;
+    }
+
+    .head-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+        gap: 9px;
+    }
+
+    .head-actions button {
+        min-width: 0;
+        width: 100%;
+        padding: 12px 9px;
+    }
+
+    .metrics {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .metric {
+        min-height: 112px;
+        padding: 15px;
+    }
+
+    .metric strong {
+        font-size: clamp(22px, 6vw, 32px);
+        overflow-wrap: anywhere;
+    }
+
+    .cols {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+    }
+
+    .card {
+        width: 100%;
+        padding: 16px;
+        margin-bottom: 12px;
+    }
+
+    .row {
+        width: 100%;
+        line-height: 1.6;
+    }
+
+    .row button {
+        margin-top: 7px;
+    }
+
+    input,
+    select,
+    textarea {
+        width: 100%;
+        min-width: 0;
+    }
+
+    pre {
+        max-width: 100%;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    #refundGrid {
+        height: 450px;
+    }
+
+    footer {
+        padding-bottom: 25px;
+    }
+}
+
+/* Very narrow phones */
+
+@media (max-width: 360px) {
+
+    main {
+        padding-left: 11px;
+        padding-right: 11px;
+    }
+
+    .metric {
+        padding: 12px;
+    }
+
+    .metric span {
+        font-size: 11px;
+    }
+
+    .metric strong {
+        font-size: 23px;
+    }
+
+    .card {
+        padding: 13px;
+    }
+
+    .head-actions {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Tablet */
+
+@media (min-width: 761px) and (max-width: 1050px) {
+
+    main {
+        min-width: 0;
+    }
+
+    .cols {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    header {
+        flex-wrap: wrap;
+    }
+}
