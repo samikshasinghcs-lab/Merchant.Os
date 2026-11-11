@@ -12,14 +12,16 @@ depends_on = None
 
 
 def upgrade():
-    with op.batch_alter_table('paypal_webhook_events') as batch:
-        batch.add_column(sa.Column('attempt_count', sa.Integer(), nullable=False, server_default='0'))
-        batch.add_column(sa.Column('next_attempt_at', sa.DateTime(timezone=True), nullable=True))
-        batch.add_column(sa.Column('locked_until', sa.DateTime(timezone=True), nullable=True))
-        batch.add_column(sa.Column('workflow_run_id', sa.String(128), nullable=True))
-        batch.add_column(sa.Column('work_item', sa.JSON(), nullable=True))
-        batch.add_column(sa.Column('dead_lettered_at', sa.DateTime(timezone=True), nullable=True))
-        batch.alter_column('attempt_count', server_default=None)
+    # These are additive columns. Use direct ALTER TABLE ADD COLUMN rather than
+    # SQLite batch-table recreation: the reflected webhook table can contain
+    # cyclic FK metadata from the ORM and batch mode fails while sorting it.
+    # Keeping the zero server default is safe and also initializes existing rows.
+    op.add_column('paypal_webhook_events', sa.Column('attempt_count', sa.Integer(), nullable=False, server_default='0'))
+    op.add_column('paypal_webhook_events', sa.Column('next_attempt_at', sa.DateTime(timezone=True), nullable=True))
+    op.add_column('paypal_webhook_events', sa.Column('locked_until', sa.DateTime(timezone=True), nullable=True))
+    op.add_column('paypal_webhook_events', sa.Column('workflow_run_id', sa.String(128), nullable=True))
+    op.add_column('paypal_webhook_events', sa.Column('work_item', sa.JSON(), nullable=True))
+    op.add_column('paypal_webhook_events', sa.Column('dead_lettered_at', sa.DateTime(timezone=True), nullable=True))
 
     bind = op.get_bind()
     tables = [Base.metadata.tables['paypal_webhook_routes'], Base.metadata.tables['event_execution_traces']]
@@ -42,10 +44,9 @@ def downgrade():
         op.execute(text('ALTER TABLE event_execution_traces NO FORCE ROW LEVEL SECURITY'))
         op.execute(text('ALTER TABLE event_execution_traces DISABLE ROW LEVEL SECURITY'))
     Base.metadata.drop_all(bind=bind, tables=[Base.metadata.tables['event_execution_traces'], Base.metadata.tables['paypal_webhook_routes']])
-    with op.batch_alter_table('paypal_webhook_events') as batch:
-        batch.drop_column('dead_lettered_at')
-        batch.drop_column('work_item')
-        batch.drop_column('workflow_run_id')
-        batch.drop_column('locked_until')
-        batch.drop_column('next_attempt_at')
-        batch.drop_column('attempt_count')
+    op.drop_column('paypal_webhook_events', 'dead_lettered_at')
+    op.drop_column('paypal_webhook_events', 'work_item')
+    op.drop_column('paypal_webhook_events', 'workflow_run_id')
+    op.drop_column('paypal_webhook_events', 'locked_until')
+    op.drop_column('paypal_webhook_events', 'next_attempt_at')
+    op.drop_column('paypal_webhook_events', 'attempt_count')
