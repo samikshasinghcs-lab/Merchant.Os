@@ -2050,3 +2050,112 @@ load().catch(e => {
     console.log('MerchantOS workflow repair loaded.');
 
 })();
+// ==================================================
+// MERCHANTOS — QUICK TOOL NAVIGATION
+// ==================================================
+
+(function () {
+    const tools = [
+        ['Complaints', 'clusters'],
+        ['Review Lab', 'reviewlab'],
+        ['Investigations', 'investigation'],
+        ['Refunds', 'refunds'],
+        ['Disputes', 'disputes'],
+        ['Evidence', 'evidence-workspace'],
+        ['PayPal', 'paypal-disputes'],
+        ['PACT', 'pact-workspace'],
+        ['Integrity', 'accountability'],
+        ['Insights', 'insights'],
+        ['Audit', 'audit']
+    ];
+
+    function initToolNavigation() {
+        const header = document.querySelector('main > header');
+        const main = document.querySelector('main');
+
+        if (!header || !main) return;
+
+        const bar = document.createElement('nav');
+        bar.id = 'mosQuickTools';
+        bar.setAttribute('aria-label', 'Quick tool navigation');
+
+        bar.innerHTML = `
+            <span class="mos-tools-label">JUMP TO</span>
+            ${tools.map(([name, id]) => `
+                <button type="button"
+                    data-target="${id}">
+                    ${name}
+                </button>
+            `).join('')}
+        `;
+
+        header.insertAdjacentElement('afterend', bar);
+
+        bar.addEventListener('click', event => {
+            const button = event.target.closest('[data-target]');
+            if (!button) return;
+
+            const target = document.getElementById(
+                button.dataset.target
+            );
+
+            if (!target) return;
+
+            if (document.body.classList.contains('adv-off')) {
+                document.body.classList.remove('adv-off');
+
+                const toggle = document.getElementById('viewToggle');
+                if (toggle) toggle.textContent = 'Hide advanced tools';
+            }
+
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        });
+
+        const toggle = document.getElementById('viewToggle');
+
+        if (toggle) {
+            toggle.addEventListener('click', () => {
+                setTimeout(() => {
+                    const visible =
+                        !document.body.classList.contains('adv-off');
+
+                    bar.classList.toggle('visible', visible);
+
+                    if (visible) {
+                        bar.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
+                }, 50);
+            });
+        }
+
+        bar.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', () => {
+                bar.querySelectorAll('button').forEach(b =>
+                    b.classList.remove('active')
+                );
+
+                button.classList.add('active');
+            });
+        });
+
+        bar.classList.toggle(
+            'visible',
+            !document.body.classList.contains('adv-off')
+        );
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener(
+            'DOMContentLoaded',
+            initToolNavigation
+        );
+    } else {
+        initToolNavigation();
+    }
+})();
