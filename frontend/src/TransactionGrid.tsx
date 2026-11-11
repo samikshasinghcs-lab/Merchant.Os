@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useCallback } from "react";
 import { AgGridReact } from "ag-grid-react";
 import { AllCommunityModule, ModuleRegistry, themeQuartz, type ColDef, type GridApi, type GridReadyEvent } from "ag-grid-community";
-import { api } from "../lib/api";
+import { api } from "./lib/api";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
