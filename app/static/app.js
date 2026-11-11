@@ -288,7 +288,42 @@ async function inspect(id) {
 // ==========================================
 // REFUNDS
 // ==========================================
+async function investigateRefund(id) {
+    const button = event?.currentTarget;
 
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Investigating…';
+    }
+
+    try {
+        const result = await api(
+            '/refunds/' + id + '/ai-analysis'
+        );
+
+        const facts = result.facts;
+        const ai = result.ai;
+
+        alert(
+            'MERCHANTOS AI REFUND INVESTIGATION\n\n' +
+            'Provider: ' + ai.provider + '\n\n' +
+            'Risk: ' + facts.risk_severity + '\n' +
+            'Risk score: ' + (facts.risk_score ?? 'Insufficient data') + '\n' +
+            'Evidence items: ' + facts.evidence_count + '\n\n' +
+            'AI ANALYSIS:\n' + ai.explanation + '\n\n' +
+            'HUMAN APPROVAL REQUIRED.'
+        );
+
+    } catch (e) {
+        alert('AI investigation failed: ' + e.message);
+
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.textContent = '✦ AI Investigate';
+        }
+    }
+}
 async function approve(id) {
     const confirmed = confirm(
         'You are authorizing a refund. Continue?'
