@@ -18,6 +18,7 @@ from .config import CLIENT_ID, CLIENT_SECRET, UPLOAD_DIR
 from . import pact
 from .refund_risk import risk_for_order
 from .refund_ai import explain_refund
+from .intelligence import router as intelligence_router
 @asynccontextmanager
 async def lifespan(app):
     from .release_readiness import readiness_report
@@ -35,6 +36,7 @@ async def lifespan(app):
     yield
 
 app=FastAPI(title="MerchantOS",version="1.0.0",lifespan=lifespan)
+app.include_router(intelligence_router)
 static=Path(__file__).parent/"static";app.mount("/static",StaticFiles(directory=static),name="static")
 @app.get("/",response_class=HTMLResponse)
 def home():return (static/"index.html").read_text()
