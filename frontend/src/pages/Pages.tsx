@@ -216,35 +216,132 @@ export function Dashboard(){
   const {data:ins}=useLoad<Any>('/api/insights');
   const {data:root}=useLoad<Any>('/api/root-cause');
 
+  const findings=root?.findings||ins?.findings||[];
+
+  function formatFinding(item:any){
+    let details=item.summary||item.description||item.detail||{};
+
+    if(typeof details==='string'){
+      try{
+        details=JSON.parse(details);
+      }catch{
+        details={description:details};
+      }
+    }
+
+    if(typeof details!=='object'||details===null){
+      details={description:String(details)};
+    }
+
+    const category=String(
+      item.category||details.category||item.title||'Operational issue'
+    ).replace(/_/g,' ');
+
+    const title=category.replace(/\b\w/g,c=>c.toUpperCase());
+
+    const batch=item.batch_id||details.batch;
+    const complaints=item.count??details.complaints;
+    const share=item.share_pct??details.share_pct;
+
+    return {
+      title,
+      batch,
+      complaints,
+      share,
+      description:details.description||details.summary
+    };
+  }
+
   return <>
     <Heading
       title="Command center"
       sub="A live view of customer experience, financial operations and emerging business issues."
-      action={<button className="secondary" onClick={refresh}><RefreshCw size={15}/> Refresh</button>}
+      action={
+        <button className="secondary" onClick={refresh}>
+          <RefreshCw size={15}/> Refresh
+        </button>
+      }
     />
 
     {error&&<div className="error">{error}</div>}
 
     <div className="metric-grid">
-      <Metric label="Orders" value={data?.orders} caption="Recorded merchant orders" icon={Wallet}/>
-      <Metric label="Customer reviews" value={data?.reviews} caption="Imported feedback records" icon={Users}/>
-      <Metric label="Open disputes" value={data?.disputes} caption="Requires merchant attention" icon={AlertCircle}/>
-      <Metric label="Refund value" value={data?.refund_total!==undefined?money(data.refund_total):'—'} caption="Recorded refund activity" icon={Activity}/>
+      <Metric
+        label="Orders"
+        value={data?.orders}
+        caption="Recorded merchant orders"
+        icon={Wallet}
+      />
+
+      <Metric
+        label="Customer reviews"
+        value={data?.reviews}
+        caption="Imported feedback records"
+        icon={Users}
+      />
+
+      <Metric
+        label="Open disputes"
+        value={data?.disputes}
+        caption="Requires merchant attention"
+        icon={AlertCircle}
+      />
+
+      <Metric
+        label="Refund value"
+        value={data?.refund_total!==undefined?money(data.refund_total):'—'}
+        caption="Recorded refund activity"
+        icon={Activity}
+      />
     </div>
 
     <div className="two-col">
-      <Panel title="Operational intelligence">
+      <Panel
+        title="Operational intelligence"
+        extra={<span className="muted">{findings.length} findings</span>}
+      >
         <div className="insight-list">
-          {(root?.findings||ins?.findings||[]).slice(0,5).map((x:any,i:number)=>
-            <div className="insight" key={i}>
-              <span className="insight-icon"><AlertCircle size={17}/></span>
-              <div>
-                <b>{x.title||x.category||'Finding'}</b>
-                <p>{x.summary||x.description||JSON.stringify(x).slice(0,150)}</p>
-              </div>
-            </div>
+          {findings.slice(0,6).map((item:any,index:number)=>{
+            const f=formatFinding(item);
+
+            return (
+              <article className="insight" key={item.id||index}>
+                <span className="insight-icon">
+                  <AlertCircle size={17}/>
+                </span>
+
+                <div>
+                  <b>{f.title}</b>
+
+                  {f.batch&&(
+                    <p>Production batch: <strong>{f.batch}</strong></p>
+                  )}
+
+                  {f.complaints!==undefined&&(
+                    <p>
+                      <strong>{f.complaints}</strong> customer complaints
+                    </p>
+                  )}
+
+                  {f.share!==undefined&&(
+                    <p>
+                      <strong>{f.share}%</strong> of reported complaints
+                    </p>
+                  )}
+
+                  {f.description&&(
+                    <p>{f.description}</p>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+
+          {!findings.length&&(
+            <p className="muted">
+              {busy?'Loading intelligence…':'No findings available yet.'}
+            </p>
           )}
-          {!root&&!ins&&<p className="muted">{busy?'Loading intelligence…':'No findings available yet.'}</p>}
         </div>
       </Panel>
 
@@ -259,7 +356,6 @@ export function Dashboard(){
     </div>
   </>;
 }
-
 /* CUSTOMERS */
 
 export function Customers(){
