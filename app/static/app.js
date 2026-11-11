@@ -107,11 +107,17 @@ async function load() {
                 <td>
                     ${
                         x.status === 'PROPOSED'
-                        ? `
+                                                ? `
+                            <button class="mini"
+                                onclick="investigateRefund('${x.id}')">
+                                ✦ AI Investigate
+                            </button>
+
                             <button class="mini"
                                 onclick="approve('${x.id}')">
-                                Approve
+                                Human Approve
                             </button>
+
                             <button class="mini reject"
                                 onclick="reject('${x.id}')">
                                 Reject
