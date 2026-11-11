@@ -1407,3 +1407,646 @@ load().catch(e => {
     console.log('MerchantOS AG Grid initialized.');
 
 })();
+// ======================================================
+// MERCHANTOS — WORKFLOW REPAIR
+// Inline records, automatic milestone selection,
+// safer PACT actions and clean feedback.
+// ======================================================
+
+(function MerchantOSWorkflowRepair() {
+    'use strict';
+
+    const $ = id => document.getElementById(id);
+
+    function escapeHTML(value) {
+        return String(value ?? '').replace(/[&<>"']/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        })[char]);
+    }
+
+    function recordArea(id, title) {
+        let el = $(id);
+
+        if (!el) {
+            el = document.createElement('section');
+            el.id = id;
+            el.className = 'mos-record';
+
+            const parent = $('pact-workspace') ||
+                $('clusters');
+
+            parent.appendChild(el);
+        }
+
+        el.innerHTML = `<h3>${escapeHTML(title)}</h3>`;
+        return el;
+    }
+
+    function showRecord(id, title, message, details = '') {
+        const el = recordArea(id, title);
+
+        el.innerHTML += `
+            <div class="mos-record-entry">
+                <strong>${escapeHTML(message)}</strong>
+                ${details ? `<p>${escapeHTML(details)}</p>` : ''}
+                <small>${new Date().toLocaleString()}</small>
+            </div>
+        `;
+
+        el.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest'
+        });
+    }
+
+    // --------------------------------------------------
+    // 1. INLINE COMPLAINT INVESTIGATION
+    // Replaces the native confirm/alert popup.
+    // --------------------------------------------------
+
+    window.inspect = async function inspectCluster(id) {
+        try {
+            const data = await api(
+                '/clusters/' + encodeURIComponent(id)
+            );
+
+            const reviews = data.reviews || [];
+
+            const panel = recordArea(
+                'mos-cluster-review',
+                'Complaint investigation'
+            );
+
+            panel.innerHTML += `
+                <div class="mos-record-entry">
+                    <span class="mos-eyebrow">INVESTIGATION</span>
+                    <h3>${escapeHTML(label(id))}</h3>
+                    <p>${reviews.length} associated reviews</p>
+
+                    <div class="mos-review-list">
+                        ${reviews.slice(0, 5).map(review => `
+                            <blockquote>
+                                ${escapeHTML(review.text)}
+                            </blockquote>
+                        `).join('')}
+                    </div>
+
+                    <p>
+                        Refund proposals will only be created
+                        where exact order/customer matching
+                        passes server-side eligibility checks.
+                    </p>
+
+                    <div class="mos-action-row">
+                        <button type="button" id="mosCreateProposal">
+                            Create eligible proposals
+                        </button>
+
+                        <button type="button"
+                            class="ghost"
+                            id="mosCancelProposal">
+                            Cancel
+                        </button>
+                    </div>
+
+                    <div id="mosProposalResult"
+                         aria-live="polite"></div>
+                </div>
+            `;
+
+            $('mosCancelProposal').onclick = () => {
+                panel.remove();
+            };
+
+            $('mosCreateProposal').onclick = async event => {
+                const button = event.currentTarget;
+                button.disabled = true;
+                button.textContent = 'Processing...';
+
+                try {
+                    const result = await api('/refunds/propose', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            cluster_id: id
+                        })
+                    });
+
+                    $('mosProposalResult').innerHTML = `
+                        <div class="mos-success">
+                            <strong>
+                                ${result.proposals.length}
+                                proposal(s) created
+                            </strong>
+                            <p>${escapeHTML(result.note || '')}</p>
+                        </div>
+                    `;
+
+                    await load();
+
+                } catch (error) {
+                    $('mosProposalResult').innerHTML = `
+                        <div class="mos-error">
+                            ${escapeHTML(error.message)}
+                        </div>
+                    `;
+                } finally {
+                    button.disabled = false;
+                    button.textContent = 'Create eligible proposals';
+                }
+            };
+
+            panel.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
+
+        } catch (error) {
+            showRecord(
+                'mos-cluster-review',
+                'Investigation error',
+                'Could not load complaint investigation',
+                error.message
+            );
+        }
+    };
+
+    // --------------------------------------------------
+    // 2. PACT AGREEMENT LIST
+    // --------------------------------------------------
+
+    window.loadPactAgreements = async function() {
+        try {
+            const agreements = await api('/pact/agreements');
+
+            const list = $('pactAgreementList');
+
+            if (!list) return;
+
+            list.innerHTML = agreements.length
+                ? agreements.map(a => `
+                    <article class="mos-agreement">
+                        <div>
+                            <strong>${escapeHTML(a.title)}</strong>
+                            <span class="status">
+                                ${escapeHTML(a.status)}
+                            </span>
+                        </div>
+
+                        <small>
+                            ${escapeHTML(a.id)} ·
+                            ${escapeHTML(a.currency)}
+                            ${escapeHTML(a.total_amount)}
+                        </small>
+
+                        <button type="button"
+                            class="mini"
+                            data-agreement-id="${escapeHTML(a.id)}">
+                            Open agreement
+                        </button>
+                    </article>
+                `).join('')
+                : '<p>No agreements created yet.</p>';
+
+            list.querySelectorAll('[data-agreement-id]')
+                .forEach(button => {
+                    button.addEventListener('click', () => {
+                        $('pactAgreementId').value =
+                            button.dataset.agreementId;
+
+                        window.loadPactAgreement();
+                    });
+                });
+
+        } catch (error) {
+            console.error('PACT agreement list:', error);
+        }
+    };
+
+    // --------------------------------------------------
+    // 3. LOAD AGREEMENT + AUTOMATIC MILESTONE SELECTION
+    // --------------------------------------------------
+
+    window.loadPactAgreement = async function() {
+        const agreementId = $('pactAgreementId').value.trim();
+
+        if (!agreementId) {
+            showRecord(
+                'mos-pact-record',
+                'Agreement record',
+                'Select an agreement first.'
+            );
+            return;
+        }
+
+        try {
+            const agreement = await api(
+                '/pact/agreements/' +
+                encodeURIComponent(agreementId)
+            );
+
+            const milestones = agreement.milestones || [];
+
+            const panel = recordArea(
+                'mos-pact-record',
+                'Agreement record'
+            );
+
+            panel.innerHTML += `
+                <div class="mos-record-entry">
+                    <span class="mos-eyebrow">
+                        ${escapeHTML(agreement.status)}
+                    </span>
+
+                    <h3>${escapeHTML(agreement.title)}</h3>
+
+                    <p>
+                        ${escapeHTML(agreement.freelancer_name)}
+                        ↔
+                        ${escapeHTML(agreement.customer_name)}
+                    </p>
+
+                    <p>
+                        ${escapeHTML(agreement.currency)}
+                        ${escapeHTML(agreement.total_amount)}
+                    </p>
+
+                    <h4>Milestones (${milestones.length})</h4>
+
+                    <div class="mos-milestone-list">
+                        ${milestones.map(m => `
+                            <button type="button"
+                                class="mos-milestone"
+                                data-milestone-id="${escapeHTML(m.id)}">
+
+                                <strong>${escapeHTML(m.title)}</strong>
+
+                                <span>
+                                    ${escapeHTML(m.status)}
+                                </span>
+
+                                <small>
+                                    ${escapeHTML(m.id)}
+                                    · ${escapeHTML(m.currency)}
+                                    ${escapeHTML(m.amount)}
+                                </small>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            $('pactAgreementDetail').textContent =
+                JSON.stringify(agreement, null, 2);
+
+            panel.querySelectorAll('[data-milestone-id]')
+                .forEach(button => {
+                    button.addEventListener('click', () => {
+                        $('pactMilestoneId').value =
+                            button.dataset.milestoneId;
+
+                        button.classList.add('selected');
+
+                        showRecord(
+                            'mos-pact-selection',
+                            'Selected milestone',
+                            button.querySelector('strong').textContent,
+                            button.dataset.milestoneId
+                        );
+                    });
+                });
+
+            if (milestones.length === 1) {
+                $('pactMilestoneId').value = milestones[0].id;
+            }
+
+            showRecord(
+                'mos-pact-selection',
+                'Agreement loaded',
+                agreement.title,
+                `${milestones.length} milestones available.`
+            );
+
+        } catch (error) {
+            showRecord(
+                'mos-pact-record',
+                'Agreement loading failed',
+                'Could not load agreement',
+                error.message
+            );
+        }
+    };
+
+    // --------------------------------------------------
+    // 4. VALIDATE AGREEMENT + MILESTONE BEFORE ACTIONS
+    // --------------------------------------------------
+
+    async function selectedMilestone() {
+        const agreementId = $('pactAgreementId').value.trim();
+        const milestoneId = $('pactMilestoneId').value.trim();
+
+        if (!agreementId) {
+            throw Error('Load an agreement first.');
+        }
+
+        if (!milestoneId) {
+            throw Error('Select a milestone first.');
+        }
+
+        const agreement = await api(
+            '/pact/agreements/' +
+            encodeURIComponent(agreementId)
+        );
+
+        const milestone = (agreement.milestones || [])
+            .find(item => item.id === milestoneId);
+
+        if (!milestone) {
+            throw Error(
+                'Selected milestone does not belong to this agreement.'
+            );
+        }
+
+        return { agreement, milestone };
+    }
+
+    // --------------------------------------------------
+    // 5. MILESTONE EVIDENCE
+    // --------------------------------------------------
+
+    window.submitPactMilestoneEvidence = async function() {
+        try {
+            const { agreement, milestone } =
+                await selectedMilestone();
+
+            const evidenceIds = $('pactEvidenceIds').value
+                .split(',')
+                .map(x => x.trim())
+                .filter(Boolean);
+
+            if (!evidenceIds.length) {
+                throw Error('Enter at least one evidence ID.');
+            }
+
+            const result = await api(
+                '/pact/agreements/' +
+                encodeURIComponent(agreement.id) +
+                '/milestones/' +
+                encodeURIComponent(milestone.id) +
+                '/evidence',
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        evidence_ids: evidenceIds,
+                        actor: 'freelancer'
+                    })
+                }
+            );
+
+            showRecord(
+                'mos-pact-actions',
+                'Evidence submission',
+                'Evidence submitted for customer review',
+                JSON.stringify(result)
+            );
+
+            await loadPactAgreement();
+
+        } catch (error) {
+            showRecord(
+                'mos-pact-actions',
+                'Evidence submission',
+                'Action unsuccessful',
+                error.message
+            );
+        }
+    };
+
+    // --------------------------------------------------
+    // 6. CUSTOMER MILESTONE REVIEW
+    // --------------------------------------------------
+
+    window.reviewPactMilestone = async function() {
+        try {
+            const { agreement, milestone } =
+                await selectedMilestone();
+
+            const partyName =
+                $('pactMilestoneCustomer').value.trim();
+
+            if (!partyName) {
+                throw Error('Enter the named customer.');
+            }
+
+            if (milestone.status !== 'SUBMITTED') {
+                throw Error(
+                    'Only submitted milestones can be reviewed.'
+                );
+            }
+
+            const result = await api(
+                '/pact/agreements/' +
+                encodeURIComponent(agreement.id) +
+                '/milestones/' +
+                encodeURIComponent(milestone.id) +
+                '/review',
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        decision: $('pactMilestoneDecision').value,
+                        party_name: partyName
+                    })
+                }
+            );
+
+            $('pactAgreementDetail').textContent =
+                JSON.stringify(result, null, 2);
+
+            showRecord(
+                'mos-pact-actions',
+                'Customer review',
+                'Decision recorded',
+                `${milestone.title}: ${$('pactMilestoneDecision').value}`
+            );
+
+            await loadPactAgreement();
+
+        } catch (error) {
+            showRecord(
+                'mos-pact-actions',
+                'Customer review',
+                'Action unsuccessful',
+                error.message
+            );
+        }
+    };
+
+    // --------------------------------------------------
+    // 7. CREATE PAYPAL AUTHORIZATION ORDER
+    // --------------------------------------------------
+
+    window.pactCreateAuthorizationOrder = async function() {
+        try {
+            const { agreement, milestone } =
+                await selectedMilestone();
+
+            if (agreement.status !== 'ACTIVE') {
+                throw Error(
+                    'Both parties must approve the agreement first.'
+                );
+            }
+
+            if (Number(milestone.amount) <= 0) {
+                throw Error(
+                    'This milestone needs an explicit positive amount.'
+                );
+            }
+
+            const result = await api(
+                '/pact/agreements/' +
+                encodeURIComponent(agreement.id) +
+                '/milestones/' +
+                encodeURIComponent(milestone.id) +
+                '/payment/authorize-order',
+                { method: 'POST' }
+            );
+
+            $('pactPaymentResult').textContent =
+                JSON.stringify(result, null, 2);
+
+            showRecord(
+                'mos-pact-actions',
+                'PayPal authorization',
+                'Authorization order created',
+                result.note || result.paypal_order_id
+            );
+
+            if (result.approval_url) {
+                const link = document.createElement('a');
+                link.href = result.approval_url;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.textContent = 'Open PayPal buyer approval';
+
+                $('mos-pact-actions').appendChild(link);
+            }
+
+            await loadPactAgreement();
+
+        } catch (error) {
+            showRecord(
+                'mos-pact-actions',
+                'PayPal authorization',
+                'Action unsuccessful',
+                error.message
+            );
+        }
+    };
+
+    // --------------------------------------------------
+    // 8. RECORD BUYER AUTHORIZATION
+    // --------------------------------------------------
+
+    window.pactAuthorizePayment = async function() {
+        try {
+            const { agreement, milestone } =
+                await selectedMilestone();
+
+            if (
+                milestone.status !== 'AUTHORIZATION_ORDER_CREATED'
+            ) {
+                throw Error(
+                    'Create the authorization order and complete buyer approval first.'
+                );
+            }
+
+            const result = await api(
+                '/pact/agreements/' +
+                encodeURIComponent(agreement.id) +
+                '/milestones/' +
+                encodeURIComponent(milestone.id) +
+                '/payment/authorize',
+                { method: 'POST' }
+            );
+
+            $('pactPaymentResult').textContent =
+                JSON.stringify(result, null, 2);
+
+            showRecord(
+                'mos-pact-actions',
+                'Buyer authorization',
+                'Authorization result received',
+                result.note || result.status
+            );
+
+            await loadPactAgreement();
+
+        } catch (error) {
+            showRecord(
+                'mos-pact-actions',
+                'Buyer authorization',
+                'Action unsuccessful',
+                error.message
+            );
+        }
+    };
+
+    // --------------------------------------------------
+    // 9. CAPTURE — ONLY AFTER CUSTOMER ACCEPTANCE
+    // --------------------------------------------------
+
+    window.pactCaptureMilestone = async function() {
+        try {
+            const { agreement, milestone } =
+                await selectedMilestone();
+
+            if (milestone.status !== 'ACCEPTED') {
+                throw Error(
+                    'Customer must accept the milestone before capture.'
+                );
+            }
+
+            if (!confirm(
+                'Capture the accepted milestone amount through PayPal Sandbox?'
+            )) return;
+
+            const result = await api(
+                '/pact/agreements/' +
+                encodeURIComponent(agreement.id) +
+                '/milestones/' +
+                encodeURIComponent(milestone.id) +
+                '/payment/capture',
+                {
+                    method: 'POST',
+                    body: JSON.stringify({})
+                }
+            );
+
+            $('pactPaymentResult').textContent =
+                JSON.stringify(result, null, 2);
+
+            showRecord(
+                'mos-pact-actions',
+                'Payment capture',
+                result.local_status || 'Capture response received',
+                result.note || ''
+            );
+
+            await loadPactAgreement();
+
+                } catch (error) {
+            showRecord(
+                'mos-pact-actions',
+                'Payment capture',
+                'Action unsuccessful',
+                error.message
+            );
+        }
+    };
+
+    console.log('MerchantOS workflow repair loaded.');
+
+})();
