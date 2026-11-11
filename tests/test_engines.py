@@ -133,14 +133,12 @@ def test_real_refunds_restricted_to_sandbox(tmp_path, monkeypatch):
     monkeypatch.setattr(main_module, "DEMO", False)
     monkeypatch.setattr(main_module, "MODE", "live")
     with TestClient(app) as client:
-                response = client.post(
+        response = client.post(
             "/api/refunds/not-a-real-proposal/approve",
             json={"human_approved": True, "confirmation": "AUTHORIZE REFUND"}
-                )
+        )
         assert response.status_code == 400
         assert "restricted to Sandbox" in response.json()["detail"]
-
-
 def test_evidence_register_and_deterministic_assessment(tmp_path, monkeypatch):
     import app.main as main_module
     monkeypatch.setattr(db_module, "DB_PATH", str(tmp_path / "evidence.db"))
