@@ -268,7 +268,16 @@ def refund_investigation(pid: str):
     return {"refund":dict(row),"order":dict(order) if order else None,"evidence":[dict(x) for x in evidence],"audit":[dict(x) for x in audit_rows]}
 
 @app.post("/api/refunds/{pid}/approve")
-def approve(pid):
+def approve(pid, body: dict):
+    if body.get("human_approved") is not True:
+        raise HTTPException(
+            403, "Explicit human approval required."
+        )
+
+    if body.get("confirmation") != "AUTHORIZE REFUND":
+        raise HTTPException(
+            400, "Type AUTHORIZE REFUND to confirm."
+        )
  if not DEMO and MODE != "sandbox":
   raise HTTPException(400,"Real PayPal refunds are restricted to Sandbox in this checkpoint. Set PAYPAL_MODE=sandbox.")
  with db() as c:
