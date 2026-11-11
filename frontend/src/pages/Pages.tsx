@@ -453,74 +453,128 @@ export function Reviews(){
   </>;
 }
 
-/* TRANSACTIONS */
+/* TRANSACTION INVESTIGATION */
 
 export function Transactions(){
   const {data,error,busy}=useLoad<any[]>('/api/transactions');
   const [id,setId]=useState('');
   const [record,setRecord]=useState<any>(null);
+  const [investigating,setInvestigating]=useState(false);
+  const [investigationError,setInvestigationError]=useState('');
 
-  const columnDefs:ColDef[]=[
-    {field:'id',headerName:'Merchant order',minWidth:170,filter:true},
-    {field:'customer_name',headerName:'Customer',minWidth:150,filter:true},
-    {field:'product',headerName:'Product',minWidth:180,flex:1},
-    {field:'amount',headerName:'Amount',minWidth:110,filter:'agNumberColumnFilter',valueFormatter:p=>p.value==null?'—':Number(p.value).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})},
-    {field:'currency',headerName:'Currency',width:100},
-    {field:'payment_status',headerName:'Payment state',minWidth:140,filter:true},
-    {field:'capture_id',headerName:'PayPal capture',minWidth:170}
-  ];
+  async function investigate(){
+    if(!id.trim())return;
 
-  const gridTheme=themeQuartz.withParams({
-    backgroundColor:'#ffffff',
-    foregroundColor:'#263329',
-    accentColor:'#819b48',
-    borderColor:'#e4e9df',
-    headerBackgroundColor:'#f6f8f3',
-    fontFamily:'DM Sans',
-    fontSize:12,
-    rowHoverColor:'#f7f9f4'
-  });
+    setInvestigating(true);
+    setInvestigationError('');
+    setRecord(null);
+
+    try{
+      const result=await api<any>(
+        `/api/transactions/${encodeURIComponent(id.trim())}`
+      );
+      setRecord(result);
+    }catch(e:any){
+      setInvestigationError(e.message);
+    }finally{
+      setInvestigating(false);
+    }
+  }
+
+  const order=record?.order||record;
+  const reviews=record?.reviews||[];
+  const amount=order?.amount;
+  const currency=order?.currency||'INR';
 
   return <>
-    <Heading title="Transaction intelligence" sub="A searchable, filterable ledger of merchant orders and provider-confirmed payment states."/>
+    <Heading
+      title="Transaction intelligence"
+      sub="Investigate orders, payment states, customer feedback and associated operational signals."
+    />
 
     <div className="toolbar">
       <div className="search">
         <Search size={16}/>
-        <input placeholder="Order ID" value={id} onChange={e=>setId(e.target.value)}/>
+        <input
+          placeholder="Enter merchant order ID, e.g. ORD-009"
+          value={id}
+          onChange={e=>setId(e.target.value)}
+          onKeyDown={e=>e.key==='Enter'&&investigate()}
+        />
       </div>
 
-      <button className="primary" onClick={async()=>{
-        try{
-          setRecord(await api(`/api/transactions/${encodeURIComponent(id)}`));
-        }catch(e:any){
-          setRecord({error:e.message});
-        }
-      }}>Investigate order</button>
+      <button className="primary" onClick={investigate} disabled={investigating||!id.trim()}>
+        {investigating?'Investigating…':'Investigate order'}
+      </button>
     </div>
 
-    {record&&<Panel title="Transaction record"><pre>{JSON.stringify(record,null,2)}</pre></Panel>}
+    {investigationError&&<div className="error">{investigationError}</div>}
 
-    <Panel title="Recent transactions" extra={<span className="muted">{data?.length??0} records · AG Grid Community</span>}>
+    {record&&<>
+      <Panel title="Order overview">
+        <div className="metric-grid">
+          <Metric label="Order value" value={amount!=null?money(amount):'—'} caption={currency} icon={Wallet}/>
+          <Metric label="Payment status" value={order?.payment_status||'Unknown'} caption="Recorded payment state" icon={CheckCircle2}/>
+          <Metric label="Customer" value={order?.customer_name||'—'} caption={order?.customer_id||'Customer reference'} icon={Users}/>
+          <Metric label="Feedback records" value={reviews.length} caption="Associated reviews" icon={Activity}/>
+        </div>
+
+        <div className="form-grid">
+          <div><small className="muted">Order ID</small><h3>{order?.id||id}</h3></div>
+          <div><small className="muted">Product</small><h3>{order?.product||'—'}</h3></div>
+          <div><small className="muted">Production batch</small><h3>{order?.batch||'—'}</h3></div>
+          <div><small className="muted">Created</small><h3>{order?.created_at?new Date(order.created_at).toLocaleString():'—'}</h3></div>
+        </div>
+      </Panel>
+
+      <Panel title="Payment verification">
+        <div className="form-grid">
+          <div><small className="muted">Payment state</small><h3>{order?.payment_status||'Not available'}</h3></div>
+          <div><small className="muted">PayPal order reference</small><h3>{order?.paypal_order_id||'—'}</h3></div>
+          <div><small className="muted">Capture reference</small><h3>{order?.capture_id||'—'}</h3></div>
+          <div><small className="muted">Amount</small><h3>{amount!=null?money(amount):'—'} {currency}</h3></div>
+        </div>
+
+        <div className="notice warning">
+          Payment status shown here is the status returned by the MerchantOS record. Verify against the payment provider before treating it as independently confirmed.
+        </div>
+      </Panel>
+
+      <Panel title="Customer feedback">
+        {reviews.length?reviews.map((review:any,index:number)=>(
+          <article className="insight" key={review.id||index}>
+            <span className="insight-icon"><AlertCircle size={17}/></span>
+            <div>
+              <b>{review.category||review.cluster_id||'Customer review'}</b>
+              <p>{review.text||'No review text available.'}</p>
+              <small className="muted">
+                Rating: {review.rating??'—'} / 5
+                {' · '}Severity: {review.severity||'—'}
+                {' · '}Sentiment: {review.sentiment||'—'}
+              </small>
+            </div>
+          </article>
+        )):<p className="muted">No associated reviews were returned for this order.</p>}
+      </Panel>
+    </>}
+
+    <Panel title="Recent transactions" extra={<span className="muted">{data?.length??0} records</span>}>
       {error&&<p className="error">{error}</p>}
-      {busy&&<p className="muted">Loading transaction ledger…</p>}
+      {busy&&<p className="muted">Loading transactions…</p>}
 
-      <div className="ag-ledger">
-        <AgGridProvider modules={[AllCommunityModule]}>
-          <AgGridReact
-            rowData={data||[]}
-            columnDefs={columnDefs}
-            theme={gridTheme}
-            domLayout="autoHeight"
-            pagination
-            paginationPageSize={10}
-            paginationPageSizeSelector={[10,25,50]}
-            animateRows={false}
-          />
-        </AgGridProvider>
-      </div>
-
-      <p className="muted">Rows are loaded from the MerchantOS transaction API. Provider-reported states remain authoritative.</p>
+      <Table
+        columns={['id','customer_name','product','amount','currency','payment_status']}
+        rows={(data||[]).map(x=>({
+          ...x,
+          id:<button className="table-link" onClick={()=>{
+            setId(x.id);
+            setRecord(null);
+            setTimeout(()=>api(`/api/transactions/${encodeURIComponent(x.id)}`).then(setRecord).catch(e=>setInvestigationError(e.message)),0);
+            window.scrollTo({top:0,behavior:'smooth'});
+          }}>{x.id}</button>,
+          amount:x.amount!=null?money(x.amount):'—'
+        }))}
+      />
     </Panel>
   </>;
 }
