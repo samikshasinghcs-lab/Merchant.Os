@@ -1,11 +1,11 @@
-import re
+
 """Bounded, provenance-labelled context for optional LLM explanations.
 
 This is a defense-in-depth data boundary, not a claim that prompt injection can
 be perfectly detected or prevented. The LLM has no tools in this call path.
 """
 from __future__ import annotations
-
+import re
 import json
 from typing import Iterable
 
