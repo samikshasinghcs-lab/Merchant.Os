@@ -610,62 +610,164 @@ export function Refunds(){
   </>;
 }
 
-/* DISPUTES */
+/* DISPUTE INVESTIGATION */
 
 export function Disputes(){
   const {data,error,refresh}=useLoad<any[]>('/api/paypal/disputes');
   const {data:local}=useLoad<any[]>('/api/disputes');
+
   const [detail,setDetail]=useState<any>(null);
+  const [loading,setLoading]=useState(false);
+  const [detailError,setDetailError]=useState('');
 
-  const paypalRows=(data||[]).map(x=>({
-    ...x,
-    dispute_id:<button className="table-link" onClick={async()=>{
-      try{
-        setDetail(await api(`/api/paypal/disputes/${encodeURIComponent(x.dispute_id)}`));
-      }catch(e:any){
-        setDetail({error:e.message});
-      }
-    }}>{x.dispute_id}</button>
-  }));
+  async function investigate(id:string,isPayPal:boolean){
+    setLoading(true);
+    setDetail(null);
+    setDetailError('');
 
-  const localRows=(local||[]).map(x=>({
-    ...x,
-    id:<button className="table-link" onClick={async()=>{
-      try{
-        setDetail(await api(`/api/disputes/${encodeURIComponent(x.id)}/assessment`));
-      }catch(e:any){
-        setDetail({error:e.message});
-      }
-    }}>{x.id}</button>
-  }));
+    try{
+      const path=isPayPal
+        ?`/api/paypal/disputes/${encodeURIComponent(id)}`
+        :`/api/disputes/${encodeURIComponent(id)}/assessment`;
+
+      setDetail(await api<any>(path));
+    }catch(e:any){
+      setDetailError(e.message);
+    }finally{
+      setLoading(false);
+    }
+  }
+
+  async function syncPayPal(){
+    try{
+      await api('/api/paypal/disputes/sync',{method:'POST'});
+      refresh();
+    }catch(e:any){
+      setDetailError(e.message);
+    }
+  }
+
+  const missing=detail?.missing_types||[];
+  const covered=detail?.covered_types||[];
+  const required=detail?.required_evidence_types||[];
+  const present=detail?.present_evidence||[];
+
+  const coverage=Number(detail?.coverage_pct??0);
+  const assessment=String(detail?.assessment||detail?.status||'Assessment pending');
 
   return <>
     <Heading
       title="Dispute center"
-      sub="Review PayPal-synchronized disputes separately from illustrative local demo records."
-      action={<button className="secondary" onClick={async()=>{
-        try{
-          await api('/api/paypal/disputes/sync',{method:'POST'});
-          refresh();
-        }catch(e:any){
-          setDetail({error:e.message});
-        }
-      }}><RefreshCw size={15}/> Sync PayPal</button>}
+      sub="Investigate dispute records, identify evidence gaps and prepare for human-reviewed responses."
+      action={<button className="secondary" onClick={syncPayPal}><RefreshCw size={15}/> Sync PayPal</button>}
     />
+
+    {error&&<div className="error">{error}</div>}
+    {detailError&&<div className="error">{detailError}</div>}
 
     <div className="two-col">
       <Panel title="PayPal disputes">
-        <Table columns={['dispute_id','status','reason','lifecycle_stage','response_due_at']} rows={paypalRows}/>
-        {error&&<p className="muted">{error}</p>}
+        <Table
+          columns={['dispute_id','status','reason','lifecycle_stage']}
+          rows={(data||[]).map(x=>({
+            ...x,
+            dispute_id:<button className="table-link" onClick={()=>investigate(x.dispute_id,true)}>{x.dispute_id}</button>
+          }))}
+        />
+        <p className="muted">Provider-synchronized records. Their current state must be confirmed with PayPal.</p>
       </Panel>
 
       <Panel title="Local illustrative disputes">
-        <Table columns={['id','order_id','reason','status']} rows={localRows}/>
-        <p className="muted">These are not PayPal disputes unless independently synchronized.</p>
+        <Table
+          columns={['id','order_id','reason','status']}
+          rows={(local||[]).map(x=>({
+            ...x,
+            id:<button className="table-link" onClick={()=>investigate(x.id,false)}>{x.id}</button>
+          }))}
+        />
+        <p className="muted">Local demo records are not represented as real PayPal disputes.</p>
       </Panel>
     </div>
 
-    {detail&&<Panel title="Dispute investigation"><pre>{JSON.stringify(detail,null,2)}</pre></Panel>}
+    {loading&&<Panel title="Dispute investigation"><p className="muted">Loading investigation…</p></Panel>}
+
+    {detail&&<>
+      <Panel title="Dispute overview">
+        <div className="form-grid">
+          <div><small className="muted">Dispute reference</small><h3>{detail.dispute_id||'Local dispute'}</h3></div>
+          <div><small className="muted">Related order</small><h3>{detail.order_id||'—'}</h3></div>
+          <div><small className="muted">Reason</small><h3>{String(detail.reason||'—').replace(/_/g,' ')}</h3></div>
+          <div><small className="muted">Assessment</small><h3>{assessment.replace(/_/g,' ')}</h3></div>
+        </div>
+      </Panel>
+
+      <Panel title="Evidence coverage">
+        <div className="metric-grid">
+          <Metric label="Coverage" value={`${coverage}%`} caption="Required evidence coverage" icon={ShieldCheck}/>
+          <Metric label="Required" value={required.length} caption="Evidence categories" icon={FileText}/>
+          <Metric label="Available" value={present.length+covered.length} caption="Evidence entries reported" icon={CheckCircle2}/>
+          <Metric label="Missing" value={missing.length} caption="Outstanding evidence categories" icon={AlertCircle}/>
+        </div>
+
+        <div style={{height:10,background:'#e7eadf',borderRadius:6,overflow:'hidden'}}>
+          <div style={{height:'100%',width:`${Math.max(0,Math.min(100,coverage))}%`,background:'#819b48',transition:'width .3s'}}/>
+        </div>
+
+        <p className="muted">{coverage}% reported coverage. This measures evidence categories, not the probability of winning a dispute.</p>
+      </Panel>
+
+      <Panel title="Evidence checklist">
+        {required.length?required.map((item:string,index:number)=>{
+          const isCovered=covered.includes(item)||present.includes(item);
+
+          return <article className="insight" key={item}>
+            <span className="insight-icon">
+              {isCovered?<CheckCircle2 size={17}/>:<AlertCircle size={17}/>}
+            </span>
+            <div>
+              <b>{item.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</b>
+              <p>{isCovered?'Evidence category reported as available.':'Evidence category reported as missing.'}</p>
+            </div>
+            <strong>{isCovered?'Available':'Missing'}</strong>
+          </article>;
+        }):<p className="muted">No required evidence checklist was returned by the API.</p>}
+      </Panel>
+
+      {detail.payment_record&&
+        <Panel title="Associated payment record">
+          <div className="form-grid">
+            <div><small className="muted">Payment reference</small><h3>{detail.payment_record.id||'—'}</h3></div>
+            <div><small className="muted">Payment state</small><h3>{detail.payment_record.payment_status||'—'}</h3></div>
+            <div><small className="muted">Amount</small><h3>{detail.payment_record.amount??'—'} {detail.payment_record.currency||''}</h3></div>
+            <div><small className="muted">Capture reference</small><h3>{detail.payment_record.capture_id||'—'}</h3></div>
+          </div>
+        </Panel>
+      }
+
+      <Panel title="Recommended investigation steps">
+        {missing.length?
+          <div className="notice warning">
+            <b>Evidence gaps identified.</b>
+            <p>Collect and verify the missing evidence categories before preparing a response:</p>
+            <ul>{missing.map((item:string)=><li key={item}>{item.replace(/_/g,' ')}</li>)}</ul>
+          </div>
+          :
+          <div className="notice">
+            No missing evidence categories were reported. Review evidence quality and accuracy before proceeding.
+          </div>
+        }
+
+        <p className="muted">
+          Merchant review and authorization are required. MerchantOS does not automatically submit a dispute response.
+        </p>
+      </Panel>
+
+      {detail.limitations&&
+        <Panel title="Assessment limitations">
+          <p>{detail.limitations}</p>
+        </Panel>
+      }
+    </>}
   </>;
 }
 
