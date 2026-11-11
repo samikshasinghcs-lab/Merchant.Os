@@ -6,7 +6,7 @@ Hyperdrive. It does not configure a Cloudflare Worker or Hyperdrive binding.
 from alembic import op
 
 revision = "20261110_01"
-down_revision = None
+down_revision = "0006_webhook_event_runtime"
 branch_labels = None
 depends_on = None
 
@@ -29,12 +29,17 @@ TENANT_TABLES = (
 
 
 def upgrade() -> None:
-    # This repository had no prior Alembic revisions. Bootstrap declared tables
-    # idempotently so a fresh deployment can migrate before the app starts.
+    # This migration extends the existing 0001-0006 schema chain. Create any
+    # metadata tables added alongside the security models, then apply RLS only
+    # on PostgreSQL. SQLite is supported for local/demo mode and cannot execute
+    # PostgreSQL's DO blocks or row-level-security DDL.
     from app.auth_sqlalchemy import Base  # noqa: PLC0415
     from app import domain_models as _domain_models  # noqa: F401, PLC0415
     from app import completion_models as _completion_models  # noqa: F401, PLC0415
-    Base.metadata.create_all(bind=op.get_bind())
+    bind = op.get_bind()
+    Base.metadata.create_all(bind=bind)
+    if bind.dialect.name != "postgresql":
+        return
 
     # Fail the migration rather than silently leaving a subset of tables exposed.
     op.execute("""
@@ -80,6 +85,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    bind = op.get_bind()
+    if bind.dialect.name != "postgresql":
+        return
     # Explicitly destructive to the security boundary; require an operator to
     # choose downgrade intentionally and re-apply before reopening multi-tenant use.
     op.execute('DROP POLICY IF EXISTS merchantos_webhook_route_lookup ON paypal_webhook_routes')
