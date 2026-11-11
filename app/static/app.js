@@ -1107,3 +1107,253 @@ load().catch(e => {
             'Dashboard error: ' + e.message;
     }
 });
+// ======================================================
+// MERCHANTOS — AG GRID REFUND MANAGEMENT
+// AG GRID COMMUNITY 32.3.3
+// SELF-CONTAINED INTEGRATION
+// ======================================================
+
+(async function MerchantOSRefundGrid() {
+    const GRID_VERSION = '32.3.3';
+
+    // Load AG Grid styles
+    const styles = [
+        `https://cdn.jsdelivr.net/npm/ag-grid-community@${GRID_VERSION}/styles/ag-grid.css`,
+        `https://cdn.jsdelivr.net/npm/ag-grid-community@${GRID_VERSION}/styles/ag-theme-quartz.css`
+    ];
+
+    styles.forEach(href => {
+        if (!document.querySelector(`link[href="${href}"]`)) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = href;
+            document.head.appendChild(link);
+        }
+    });
+
+    // Load AG Grid JavaScript
+    if (!window.agGrid) {
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src =
+                `https://cdn.jsdelivr.net/npm/ag-grid-community@${GRID_VERSION}/dist/ag-grid-community.min.js`;
+
+            script.onload = resolve;
+            script.onerror = () =>
+                reject(new Error('AG Grid failed to load'));
+
+            document.head.appendChild(script);
+        });
+    }
+
+    // Inject styling
+    const style = document.createElement('style');
+
+    style.textContent = `
+        #refundGrid {
+            width: 100%;
+            height: 430px;
+            margin-top: 18px;
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .ag-theme-quartz {
+            --ag-font-family: 'DM Sans', sans-serif;
+            --ag-font-size: 13px;
+            --ag-background-color: #fbfaf6;
+            --ag-foreground-color: #26372f;
+            --ag-header-background-color: #edf1e9;
+            --ag-header-foreground-color: #26372f;
+            --ag-border-color: #dfe5dc;
+            --ag-row-border-color: #e8ece5;
+            --ag-row-hover-color: #eef4ed;
+            --ag-header-height: 48px;
+            --ag-row-height: 56px;
+            --ag-wrapper-border-radius: 14px;
+        }
+
+        .ag-theme-quartz .ag-header-cell-text {
+            font-weight: 700;
+            letter-spacing: .04em;
+        }
+
+        .ag-theme-quartz .mini {
+            margin-right: 5px;
+        }
+    `;
+
+    document.head.appendChild(style);
+
+    // Locate existing refund table
+    const oldTable = document.querySelector('#refundRows');
+
+    if (!oldTable) {
+        console.error('MerchantOS: Refund table not found.');
+        return;
+    }
+
+    const table = oldTable.closest('table') || oldTable;
+
+    // Create grid container
+    const container = document.createElement('div');
+    container.id = 'refundGrid';
+    container.className = 'ag-theme-quartz';
+
+    table.replaceWith(container);
+
+    // Create grid
+    const gridApi = agGrid.createGrid(container, {
+        columnDefs: [
+            {
+                field: 'order_id',
+                headerName: 'ORDER ID',
+                flex: 1,
+                minWidth: 140
+            },
+            {
+                field: 'reason',
+                headerName: 'REASON',
+                flex: 1,
+                minWidth: 140,
+                valueFormatter: p =>
+                    typeof label === 'function'
+                        ? label(p.value)
+                        : p.value
+            },
+            {
+                headerName: 'AMOUNT',
+                flex: 1,
+                minWidth: 130,
+                valueGetter: p =>
+                    typeof money === 'function'
+                        ? money(p.data.amount, p.data.currency)
+                        : `${p.data.currency} ${p.data.amount}`
+            },
+            {
+                field: 'status',
+                headerName: 'STATUS',
+                flex: 1,
+                minWidth: 130,
+                cellRenderer: params => {
+                    const badge = document.createElement('span');
+                    badge.textContent = params.value;
+
+                    badge.className =
+                        'status s-' +
+                        String(params.value).toLowerCase();
+
+                    return badge;
+                }
+            },
+            {
+                headerName: 'ACTIONS',
+                minWidth: 190,
+                sortable: false,
+                filter: false,
+                cellRenderer: params => {
+                    const wrapper = document.createElement('div');
+
+                    if (params.data.status === 'PROPOSED') {
+                        const approveButton =
+                            document.createElement('button');
+
+                        approveButton.textContent = 'Approve';
+                        approveButton.className = 'mini';
+
+                        approveButton.onclick = () => {
+                            if (typeof approve === 'function') {
+                                approve(params.data.id);
+                            }
+                        };
+
+                        const rejectButton =
+                            document.createElement('button');
+
+                        rejectButton.textContent = 'Reject';
+                        rejectButton.className = 'mini reject';
+
+                        rejectButton.onclick = () => {
+                            if (typeof reject === 'function') {
+                                reject(params.data.id);
+                            }
+                        };
+
+                        wrapper.append(
+                            approveButton,
+                            rejectButton
+                        );
+                    } else {
+                        wrapper.textContent =
+                            params.data.paypal_id || '—';
+                    }
+
+                    return wrapper;
+                }
+            }
+        ],
+
+        defaultColDef: {
+            sortable: true,
+            filter: true,
+            resizable: true
+        },
+
+        rowData: [],
+
+        pagination: true,
+        paginationPageSize: 10,
+        animateRows: true
+    });
+
+    // Fetch refund data
+    async function refreshRefundGrid() {
+        try {
+            const response = await fetch('/api/refunds');
+
+            if (!response.ok) {
+                throw new Error('Could not load refunds');
+            }
+
+            const refunds = await response.json();
+
+            gridApi.setGridOption('rowData', refunds);
+
+        } catch (error) {
+            console.error(
+                'MerchantOS refund grid:',
+                error
+            );
+        }
+    }
+
+    // Initial data
+    await refreshRefundGrid();
+
+    // Refresh after existing refund actions
+    if (typeof approve === 'function') {
+        const originalApprove = approve;
+
+        window.approve = async function(id) {
+            await originalApprove(id);
+            await refreshRefundGrid();
+        };
+    }
+
+    if (typeof reject === 'function') {
+        const originalReject = reject;
+
+        window.reject = async function(id) {
+            await originalReject(id);
+            await refreshRefundGrid();
+        };
+    }
+
+    // Keep grid synchronized with backend
+    setInterval(refreshRefundGrid, 30000);
+
+    console.log(
+        'MerchantOS: AG Grid initialized successfully.'
+    );
+
+})();
