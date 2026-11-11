@@ -33,10 +33,11 @@ def test_backend_vertical_slice(tmp_path, monkeypatch):
         assert second.json()["proposals"] == []
 
         proposal_id = proposals[0]["id"]
-        approved = client.post(f"/api/refunds/{proposal_id}/approve")
+        approval = {"human_approved": True, "confirmation": "AUTHORIZE REFUND"}
+approved = client.post(f"/api/refunds/{proposal_id}/approve", json=approval)
         assert approved.status_code == 200
         assert approved.json()["status"] == "SIMULATED"
-        repeated = client.post(f"/api/refunds/{proposal_id}/approve")
+        repeated = client.post(f"/api/refunds/{proposal_id}/approve", json=approval)
         assert repeated.status_code == 200
         assert repeated.json()["status"] == "SIMULATED"
         assert "Already processed" in repeated.json()["message"]
