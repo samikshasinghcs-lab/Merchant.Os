@@ -2159,3 +2159,100 @@ load().catch(e => {
         initToolNavigation();
     }
 })();
+// ==========================================
+// DEEPTECH — MERCHANTOS WORKSPACE
+// ==========================================
+(() => {
+    const button = document.getElementById('refreshDeepTech');
+    const status = document.getElementById('deeptechStatus');
+    const results = document.getElementById('deeptechResults');
+
+    if (!button || !status || !results) return;
+
+    const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({
+        '&':'&amp;', '<':'&lt;', '>':'&gt;',
+        '"':'&quot;', "'":'&#39;'
+    }[c]));
+
+    const row = (name, value) =>
+        `<div class="row"><span>${esc(name)}</span><b>${esc(value)}</b></div>`;
+
+    async function refresh() {
+        button.disabled = true;
+        button.textContent = 'Analysing...';
+        status.textContent = 'Analysing MerchantOS records...';
+
+        try {
+            const response = await fetch('/api/deeptech/lab', {
+                cache: 'no-store'
+            });
+
+            const d = await response.json();
+
+            if (!response.ok) {
+                throw new Error(d.detail || 'Analysis failed');
+            }
+
+            const a = d.anomaly || {};
+            const g = d.graph;
+            const s = d.simulation;
+            const c = d.audit_chain;
+
+            let html = '<div class="cols">';
+
+            html += `<section class="card">
+                <h3>1. Anomaly Detection</h3>
+                ${row('Orders analysed', d.orders)}
+                ${row('Method', a.method || 'Robust statistics')}
+                ${(a.top || []).map(x => `
+                    <div class="row">
+                        <b>${esc(x.order_id)}</b>
+                        ${row('Score', x.score)}
+                        ${row('Severity', x.severity)}
+                        <small>${esc((x.signals || []).join(', '))}</small>
+                    </div>
+                `).join('') || '<p>No anomaly findings.</p>'}
+            </section>`;
+
+            html += `<section class="card">
+                <h3>2. Transaction Graph</h3>
+                ${g ? row('Nodes', g.nodes) +
+                    row('Edges', g.edges) +
+                    row('Connected groups', g.components)
+                    : '<p>Unavailable</p>'}
+            </section>`;
+
+            html += `<section class="card">
+                <h3>3. Monte Carlo Simulation</h3>
+                ${s ? row('Scenario', s.scenario) +
+                    row('5th–95th percentile', s.p05 + ' – ' + s.p95) +
+                    row('Median', s.median) +
+                    row('Chance of loss', (s.probability_of_loss * 100).toFixed(1) + '%') +
+                    row('Refund rate assumption', (s.refund_rate * 100).toFixed(1) + '%') +
+                    `<p>${esc(s.assumptions)}</p>`
+                    : '<p>Unavailable</p>'}
+            </section>`;
+
+            html += `<section class="card">
+                <h3>4. Audit Integrity</h3>
+                ${c ? row('Events', c.events) +
+                    row('Chain valid', c.valid ? 'YES' : 'NO') +
+                    row('Tamper detected', c.tamper_test.detected ? 'YES' : 'NO')
+                    : '<p>Unavailable</p>'}
+            </section>`;
+
+            html += '</div>';
+
+            results.innerHTML = html;
+            status.textContent = 'Analysis refreshed successfully.';
+        } catch (e) {
+            status.textContent = 'Error: ' + e.message;
+        } finally {
+            button.disabled = false;
+            button.textContent = 'Refresh Analysis';
+        }
+    }
+
+    button.addEventListener('click', refresh);
+    refresh();
+})();
