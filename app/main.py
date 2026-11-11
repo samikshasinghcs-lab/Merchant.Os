@@ -17,6 +17,7 @@ from .paypal import list_disputes as paypal_list_disputes, get_dispute as paypal
 from .config import CLIENT_ID, CLIENT_SECRET, UPLOAD_DIR
 from . import pact
 from .refund_risk import risk_for_order
+from .refund_ai import explain_refund
 @asynccontextmanager
 async def lifespan(app):
     from .release_readiness import readiness_report
