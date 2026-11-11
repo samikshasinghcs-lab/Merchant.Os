@@ -279,6 +279,14 @@ def approve(pid):
   if not o or o["payment_status"]!="COMPLETED":raise HTTPException(400,"Payment is not captured")
   prior=c.execute("SELECT COALESCE(SUM(amount),0) FROM refunds WHERE order_id=? AND status IN ('SIMULATED','PENDING','COMPLETED')",(p["order_id"],)).fetchone()[0]
   if prior+p["amount"]>o["amount"]+0.001:raise HTTPException(400,"Refund exceeds captured amount")
+       risk = risk_for_order(p["order_id"])
+
+ log(
+     "REFUND_RISK_ASSESSED",
+     "system",
+     pid,
+     risk if risk else {"status": "INSUFFICIENT_DATA"}
+ )
  try:r=refund(p["capture_id"],p["amount"],p["currency"],p["idem"])
  except PayPalError as e:log("REFUND_FAILED","merchant",pid,{"error":str(e)});raise HTTPException(502,str(e))
  ps=r.get("status","UNKNOWN").upper(); status="SIMULATED" if ps=="SIMULATED" else ("COMPLETED" if ps=="COMPLETED" else "PENDING")
