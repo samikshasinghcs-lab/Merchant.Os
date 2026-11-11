@@ -1,3 +1,4 @@
+import re
 """Bounded, provenance-labelled context for optional LLM explanations.
 
 This is a defense-in-depth data boundary, not a claim that prompt injection can
@@ -20,7 +21,7 @@ def review_context(*, cluster_id: str, review_count: int,
     """Serialize a small data-only envelope; review text remains explicitly untrusted."""
     bounded = []
     for raw in list(examples)[:MAX_REVIEW_EXAMPLES]:
-        value = str(raw or "")[:MAX_REVIEW_CHARS]
+        value = redact_customer_text(raw)
         bounded.append({"content": value, "provenance": "merchant/customer review; untrusted text"})
     envelope = {
         "record_type": "merchant_review_cluster",
