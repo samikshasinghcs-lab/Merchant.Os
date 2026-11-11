@@ -1077,3 +1077,97 @@ table {
         flex-direction: column;
     }
 }
+/* ==========================================
+   MERCHANTOS QUICK TOOL NAVIGATION
+   ========================================== */
+
+#mosQuickTools {
+    display: none;
+    position: sticky;
+    top: 8px;
+    z-index: 20;
+    width: 100%;
+    padding: 10px;
+    margin: 0 0 24px;
+    background: rgba(255,255,255,.96);
+    border: 1px solid #e4eae4;
+    border-radius: 14px;
+    box-shadow: 0 5px 20px rgba(20,40,30,.07);
+    gap: 7px;
+    align-items: center;
+    overflow-x: auto;
+    scrollbar-width: none;
+    white-space: nowrap;
+}
+
+#mosQuickTools::-webkit-scrollbar {
+    display: none;
+}
+
+#mosQuickTools.visible {
+    display: flex;
+}
+
+#mosQuickTools .mos-tools-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: #176447;
+    letter-spacing: 1px;
+    padding: 0 8px;
+}
+
+#mosQuickTools button {
+    flex: 0 0 auto;
+    padding: 8px 13px;
+    border-radius: 9px;
+    border: 1px solid #e4eae4;
+    background: #f5f8f4;
+    color: #40574a;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+#mosQuickTools button.active,
+#mosQuickTools button:focus {
+    background: #176447;
+    color: white;
+    border-color: #176447;
+}
+
+main > section[id],
+main > .cols {
+    scroll-margin-top: 90px;
+}
+
+@media(max-width:760px) {
+    #mosQuickTools {
+        position: fixed;
+        top: auto;
+        bottom: 12px;
+        left: 10px;
+        right: 10px;
+        width: auto;
+        margin: 0;
+        padding: 9px;
+        border-radius: 15px;
+        box-shadow: 0 5px 25px rgba(0,0,0,.16);
+        background: #fff;
+    }
+
+    #mosQuickTools .mos-tools-label {
+        display: none;
+    }
+
+    #mosQuickTools button {
+        padding: 10px 14px;
+    }
+
+    body {
+        padding-bottom: 75px;
+    }
+
+    main > section[id],
+    main > .cols {
+        scroll-margin-top: 20px;
+    }
+}
