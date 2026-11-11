@@ -60,7 +60,7 @@ def test_refund_cap_and_rejection(tmp_path, monkeypatch):
     with TestClient(app) as client:
         proposals = client.post("/api/refunds/propose", json={"cluster_id": "damaged_packaging"}).json()["proposals"]
         assert proposals
-                pid = proposals[0]["id"]
+        pid = proposals[0]["id"]
         approval = {"human_approved": True, "confirmation": "AUTHORIZE REFUND"}
         monkeypatch.setattr(main_module, "MAX_REFUND", 1.0)
         blocked = client.post(f"/api/refunds/{pid}/approve", json=approval)
