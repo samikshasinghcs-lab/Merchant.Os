@@ -914,7 +914,7 @@ def auth_register(body: dict, request: Request, session=Depends(identity.db_sess
     # high-entropy token out of band; never let the first internet visitor claim ownership.
     bootstrap = os.getenv('MERCHANTOS_BOOTSTRAP_REGISTRATION_TOKEN', '')
     supplied = request.headers.get('X-MerchantOS-Bootstrap-Token', '')
-    if len(bootstrap) < 32 or not hmac.compare_digest(bootstrap, supplied):
+    if len(bootstrap) < 32 or not hmac.compare_digest(bootstrap.encode("utf-8"), supplied.encode("utf-8")):
         raise HTTPException(403, 'Initial registration is disabled; use the operator-provisioned bootstrap credential.')
     if session.scalar(select(func.count(identity.Tenant.id))) > 0:
         raise HTTPException(409,'This release is configured for a single-merchant pilot. Multi-merchant domain isolation must be completed before additional workspaces are enabled.')
