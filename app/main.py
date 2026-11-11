@@ -174,7 +174,10 @@ def semantic_cluster_explanation(cluster_id: str):
 
 @app.get("/api/customers")
 def customer_list(): return mi.customers()
-
+@app.get("/api/deeptech/lab")
+def deeptech_lab():
+    from .deeptech_lab import lab_report
+    return lab_report()
 @app.get("/api/customers/{customer_id}")
 def customer_investigation(customer_id: str):
     result=mi.customer_detail(customer_id)
