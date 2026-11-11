@@ -383,3 +383,50 @@ pre{background:#18221a;color:#dce8d1;border-radius:3px;border:1px solid #2b382b;
 body {
   overflow-x: hidden;
 }
+/* INVESTIGATION WORKSPACE */
+
+.insight strong{
+  font-size:11px;
+  color:#526c29;
+}
+
+.insight{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.insight>div{
+  flex:1;
+  min-width:0;
+}
+
+.insight p{
+  overflow-wrap:anywhere;
+  line-height:1.6;
+}
+
+.form-grid h3{
+  font-size:13px;
+  margin:5px 0 12px;
+  overflow-wrap:anywhere;
+}
+
+@media(max-width:560px){
+  .form-grid{
+    grid-template-columns:1fr;
+  }
+
+  .metric-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .insight{
+    gap:9px;
+  }
+
+  .insight>div{
+    flex-basis:calc(100% - 50px);
+  }
+}
