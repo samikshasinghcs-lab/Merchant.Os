@@ -60,9 +60,10 @@ def test_refund_cap_and_rejection(tmp_path, monkeypatch):
     with TestClient(app) as client:
         proposals = client.post("/api/refunds/propose", json={"cluster_id": "damaged_packaging"}).json()["proposals"]
         assert proposals
-        pid = proposals[0]["id"]
+                pid = proposals[0]["id"]
+        approval = {"human_approved": True, "confirmation": "AUTHORIZE REFUND"}
         monkeypatch.setattr(main_module, "MAX_REFUND", 1.0)
-        blocked = client.post(f"/api/refunds/{pid}/approve")
+        blocked = client.post(f"/api/refunds/{pid}/approve", json=approval)
         assert blocked.status_code == 400
         assert "cap" in blocked.json()["detail"].lower()
         monkeypatch.setattr(main_module, "MAX_REFUND", 2000.0)
@@ -70,7 +71,7 @@ def test_refund_cap_and_rejection(tmp_path, monkeypatch):
         assert rejected.status_code == 200
         assert rejected.json()["status"] == "REJECTED"
         # Rejected proposals cannot later be approved.
-        again = client.post(f"/api/refunds/{pid}/approve")
+        again = client.post(f"/api/refunds/{pid}/approve", json=approval)
         assert again.status_code == 200
         assert again.json()["status"] == "REJECTED"
 
@@ -132,7 +133,10 @@ def test_real_refunds_restricted_to_sandbox(tmp_path, monkeypatch):
     monkeypatch.setattr(main_module, "DEMO", False)
     monkeypatch.setattr(main_module, "MODE", "live")
     with TestClient(app) as client:
-        response = client.post("/api/refunds/not-a-real-proposal/approve")
+                response = client.post(
+            "/api/refunds/not-a-real-proposal/approve",
+            json={"human_approved": True, "confirmation": "AUTHORIZE REFUND"}
+                )
         assert response.status_code == 400
         assert "restricted to Sandbox" in response.json()["detail"]
 
