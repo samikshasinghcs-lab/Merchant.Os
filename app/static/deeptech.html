@@ -1,0 +1,35 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MerchantOS · DeepTech engine</title>
+<style>
+:root{--bg:#f7f7f4;--fg:#15181c;--card:#fff;--mut:#5b6470;--line:#e2e4e8;--acc:#0b6b4f}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1210;--fg:#eef2ef;--card:#151c18;--mut:#9aa6a0;--line:#26302b;--acc:#4fd1a0}}
+body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+main{max-width:720px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:22px;margin:0 0 4px}p.s{color:var(--mut);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:12px 0}
+.card h2{font-size:15px;margin:0 0 2px;color:var(--acc)}.card .m{color:var(--mut);font-size:12.5px;margin-bottom:8px}
+.k{display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-top:1px solid var(--line)}
+.k:first-of-type{border-top:0}code{font-size:12px;word-break:break-all}
+.ok{color:var(--acc);font-weight:600}.bad{color:#c0392b;font-weight:600}a{color:var(--acc)}
+</style></head><body><main>
+<h1>DeepTech engine</h1>
+<p class="s">Four explainable engines running on this workspace's own records. Advisory only: they never approve or move money. <a href="/workspace">Back to workspace</a></p>
+<div id="o"><p class="s">Loading…</p></div>
+<script>
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const row=(a,b)=>`<div class="k"><span>${a}</span><span>${b}</span></div>`;
+fetch('/api/deeptech/lab').then(r=>r.json()).then(d=>{
+ let h='';
+ const a=d.anomaly;
+ h+=`<div class="card"><h2>1 · Anomaly scoring</h2><div class="m">${esc(a.method)} · each order vs the others</div>`+
+  (a.top.length?a.top.map(x=>row(esc(x.order_id)+' · '+esc(x.amount)+' '+esc(x.currency),`<b>${x.score}</b> ${esc(x.severity)}`)+(x.signals.length?`<div class="m">${x.signals.map(esc).join(', ')}</div>`:'')).join(''):'<div class="m">No data yet.</div>')+`</div>`;
+ const g=d.graph;
+ h+=`<div class="card"><h2>2 · Transaction graph</h2><div class="m">Links only from exact shared identifiers</div>`+(g?row('Nodes',g.nodes)+row('Edges',g.edges)+row('Connected groups',g.components):'<div class="m">Unavailable</div>')+`</div>`;
+ const s=d.simulation;
+ h+=`<div class="card"><h2>3 · Monte Carlo scenario</h2><div class="m">Seeded, reproducible · ${s?esc(s.scenario):''}</div>`+(s?row('Likely range (5th–95th pct)',s.p05+' – '+s.p95)+row('Median',s.median)+row('Chance of loss',(s.probability_of_loss*100).toFixed(1)+'%')+row('Assumed refund rate',(s.refund_rate*100).toFixed(1)+'%')+`<div class="m">${esc(s.assumptions)} Seed ${s.seed}.</div>`:'<div class="m">Unavailable</div>')+`</div>`;
+ const c=d.audit_chain;
+ h+=`<div class="card"><h2>4 · Tamper-evident audit chain</h2><div class="m">Each event is hash-linked to the one before</div>`+(c?row('Events chained',c.events)+row('Chain valid',c.valid?'<span class="ok">yes</span>':'<span class="bad">no</span>')+(c.tamper_test.tested?row('Edit one event → detected?',c.tamper_test.detected?'<span class="ok">yes</span>':'<span class="bad">no</span>'):'')+(c.head_hash?`<div class="m">Head: <code>${esc(c.head_hash)}</code></div>`:''):'<div class="m">Unavailable</div>')+`</div>`;
+ document.getElementById('o').innerHTML=h;
+}).catch(()=>{document.getElementById('o').innerHTML='<p class="s">Could not load. Open /health first to wake the server, then refresh.</p>';});
+</script></main></body></html>
