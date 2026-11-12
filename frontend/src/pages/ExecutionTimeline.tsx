@@ -29,7 +29,7 @@ export default function ExecutionTimeline(){
         return <li key={String(row.id)} className={failed?'is-failed':completed?'is-completed':''}>
           <span className="execution-timeline-dot" aria-hidden="true"/>
           <div className="execution-timeline-content"><div className="execution-timeline-top"><b>{event.replaceAll('_',' ')}</b><time dateTime={row.created_at}>{(row.created_at||row.timestamp)?new Date(String(row.created_at||row.timestamp)).toLocaleString():'Time unavailable'}</time></div>
-            <p>{row.entity_type||row.entity||'system'} {row.entity_id||''} · {row.actor||row.actor_email||'system'}</p>{row.detail&&<small>{typeof row.detail==='string'?row.detail:JSON.stringify(row.detail)}</small>}
+            <p>{row.entity_type||row.entity||'system'} {row.entity_id||''} · {row.actor||row.actor_email||'system'}</p>{row.detail != null && <small>{typeof row.detail === 'string' ? row.detail : String(JSON.stringify(row.detail) ?? '')}</small>}
           </div>
         </li>;
       })}</ol>
