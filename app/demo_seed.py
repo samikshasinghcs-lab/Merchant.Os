@@ -39,10 +39,16 @@ def seed_tenant_demo_data(session, tenant_id: str, actor_user_id: str) -> dict:
         ("Terra Insulated Bottle", "BATCH-TER-04", Decimal("899.00")),
         ("Lumen Desk Lamp", "BATCH-LUM-03", Decimal("1799.00")),
     ]
+    # Keep complaint and refund scenarios aligned with the product actually ordered.
+    product_sequence = [
+        0, 1, 2, 0, 2, 1, 2, 0, 1, 2,
+        0, 1, 2, 0, 1, 1, 0, 2, 2, 0,
+        1, 2, 0, 1, 2, 0, 2, 1, 0, 1,
+    ]
     orders = []
     for i in range(30):
         customer_id, customer_name = customers[i % len(customers)]
-        product, batch, base_amount = products[(i * 7 + i // 3) % len(products)]
+        product, batch, base_amount = products[product_sequence[i]]
         order_id = _id(tenant_id, "order", f"{i + 1:02d}")
         orders.append({
             "id": order_id, "customer_id": customer_id,
