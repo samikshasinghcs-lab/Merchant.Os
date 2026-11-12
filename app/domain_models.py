@@ -35,7 +35,7 @@ class TenantReview(Base):
     customer_id: Mapped[str|None]=mapped_column(String(100)); customer_name: Mapped[str|None]=mapped_column(String(200))
     order_id: Mapped[str|None]=mapped_column(String(100)); product: Mapped[str|None]=mapped_column(String(300))
     rating: Mapped[int|None]=mapped_column(Integer); text: Mapped[str]=mapped_column(Text,nullable=False)
-    category: Mapped[str|None]=mapped_column(String(100)); severity: Mapped[str|None]=mapped_column(String(30))
+    category: Mapped[str|None]=mapped_column(String(100)); severity: Mapped[str|None]=mapped_column(String(30)); complaint_cluster_id: Mapped[str|None]=mapped_column(String(100),index=True)
     created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now_utc,nullable=False)
 
 class TenantRefund(Base):

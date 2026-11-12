@@ -1433,3 +1433,8 @@ def paypal_vault_return():
 @app.get("/paypal/vault/cancel", response_class=HTMLResponse)
 def paypal_vault_cancel():
     return "<main><h1>PayPal vault setup cancelled</h1><p>No payment token was finalized.</p></main>"
+
+
+# Additive tenant-scoped financial lifecycle workspace.
+from .financial_lifecycle import router as financial_lifecycle_router
+app.include_router(financial_lifecycle_router)

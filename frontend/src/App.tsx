@@ -5,6 +5,7 @@ import type {LucideIcon} from 'lucide-react';
 import {api,token} from './lib/api';
 import {Dashboard,Customers,Transactions,Refunds,Disputes,Agreements,Milestones,Reviews,Audit,Evidence,RootCause,Login} from './pages/Pages';
 import ExecutionTimeline from './pages/ExecutionTimeline';
+import FinancialLifecycle from './pages/FinancialLifecycle';
 
 const nav=[['Overview','/',LayoutDashboard],['Customer intelligence','/customers',Users],['Review lab','/reviews',Search],['Transactions','/transactions',WalletCards],['Execution timeline','/execution',Workflow],['Refund investigations','/refunds',ArrowDownLeft],['Dispute center','/disputes',AlertTriangle],['Agreements','/agreements',FileText],['Milestones','/milestones',BriefcaseBusiness],['Evidence vault','/evidence',FileCheck2],['Root-cause intelligence','/root-cause',ChartNoAxesCombined],['Trust & audit','/audit',ShieldCheck]] as const;
 
@@ -57,7 +58,7 @@ const navGroups: {label:string;items:readonly NavItem[]}[] = [
     ['Overview','/',LayoutDashboard], ['Customer intelligence','/customers',Users], ['Review lab','/reviews',Search], ['Root-cause intelligence','/root-cause',ChartNoAxesCombined]
   ]},
   { label: 'FINANCIAL OPERATIONS', items: [
-    ['Transactions','/transactions',WalletCards], ['Refund investigations','/refunds',ArrowDownLeft], ['Dispute center','/disputes',AlertTriangle], ['Evidence vault','/evidence',FileCheck2]
+    ['Transactions','/transactions',WalletCards], ['Financial lifecycle','/financial-lifecycle',Activity], ['Refund investigations','/refunds',ArrowDownLeft], ['Dispute center','/disputes',AlertTriangle], ['Evidence vault','/evidence',FileCheck2]
   ]},
   { label: 'OPERATIONS & CONTROL', items: [
     ['Execution timeline','/execution',Workflow], ['Agreements','/agreements',FileText], ['Milestones','/milestones',BriefcaseBusiness], ['Trust & audit','/audit',ShieldCheck]
@@ -131,7 +132,7 @@ export default function App(){
           <span className="env"><i/> Pilot environment</span><div className="avatar top-avatar" aria-label={`Signed in as ${user?.name||'Merchant'}`}>{(user?.name||'M')[0].toUpperCase()}</div>
         </div>
       </header>
-      <div className="content"><Routes><Route path="/" element={<Dashboard/>}/><Route path="/customers" element={<Customers/>}/><Route path="/reviews" element={<Reviews/>}/><Route path="/root-cause" element={<RootCause/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/execution" element={<ExecutionTimeline/>}/><Route path="/refunds" element={<Refunds/>}/><Route path="/disputes" element={<Disputes/>}/><Route path="/evidence" element={<Evidence/>}/><Route path="/agreements" element={<Agreements/>}/><Route path="/milestones" element={<Milestones/>}/><Route path="/audit" element={<Audit/>}/><Route path="*" element={<Dashboard/>}/></Routes></div>
+      <div className="content"><Routes><Route path="/" element={<Dashboard/>}/><Route path="/customers" element={<Customers/>}/><Route path="/reviews" element={<Reviews/>}/><Route path="/root-cause" element={<RootCause/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/financial-lifecycle" element={<FinancialLifecycle/>}/><Route path="/execution" element={<ExecutionTimeline/>}/><Route path="/refunds" element={<Refunds/>}/><Route path="/disputes" element={<Disputes/>}/><Route path="/evidence" element={<Evidence/>}/><Route path="/agreements" element={<Agreements/>}/><Route path="/milestones" element={<Milestones/>}/><Route path="/audit" element={<Audit/>}/><Route path="*" element={<Dashboard/>}/></Routes></div>
     </main>
     {quickOpen&&<div className="quick-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setQuickOpen(false);}}><section className="quick-dialog" role="dialog" aria-modal="true" aria-labelledby="quick-title"><div className="quick-input-row"><Search size={18}/><label className="sr-only" id="quick-title" htmlFor="quick-search">Find a workspace</label><input id="quick-search" autoFocus placeholder="Search pages and workflows…" value={quickQuery} onChange={e=>setQuickQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&quickMatches[0]){navTo(quickMatches[0][1]);setQuickOpen(false);}}}/><kbd>ESC</kbd></div><div className="quick-results">{quickMatches.map(([label,path,Icon])=><button key={path} onClick={()=>{navTo(path);setQuickOpen(false);}}><Icon size={17}/><span>{label}</span><small>{path==='/'?'Overview':path}</small><ChevronRight size={14}/></button>)}{!quickMatches.length&&<p>No matching workspace pages.</p>}</div><footer><span><Keyboard size={13}/> Navigate with search</span><span>ENTER to open</span></footer></section></div>}
   </div>;
