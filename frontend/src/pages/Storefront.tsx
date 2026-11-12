@@ -4,7 +4,7 @@ import {useLocation} from 'react-router-dom';
 import {api} from '../lib/api';
 
 type Product={id:string;name:string;description?:string;amount:string;currency:string};
-type Checkout={merchant_order_id:string;approval_url:string;access_token:string;amount:string;currency:string};
+type Checkout={merchant_order_id:string;paypal_order_id:string;approval_url:string;access_token:string;amount:string;currency:string};
 
 const box:CSSProperties={maxWidth:760,margin:'32px auto',padding:24,border:'1px solid #dbe2ea',borderRadius:18,background:'#fff',color:'#172033'};
 const field:React.CSSProperties={display:'grid',gap:6,margin:'12px 0',fontSize:13,fontWeight:650};
