@@ -4,6 +4,7 @@ import { Activity, AlertCircle, CheckCircle2, Clock3, RefreshCw, ShieldCheck, Wa
 
 type AnyRow = Record<string, any>;
 
+const money=(value:any)=>Number(value||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
 const label=(value:any)=>String(value??'—').replaceAll('_',' ').replace(/\\b\\w/g,c=>c.toUpperCase());
 const date=(value:any)=>{if(!value)return 'Time unavailable';const d=new Date(value);return Number.isNaN(d.getTime())?'Time unavailable':d.toLocaleString();};
 const safeDetail=(value:any)=>{if(typeof value!=='string')return value&&typeof value==='object'?value:{};try{return JSON.parse(value)}catch{return {description:value}}};
