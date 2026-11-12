@@ -647,19 +647,20 @@ export function Reviews(){
   const {data,error,refresh}=useLoad<any[]>('/api/v1/domain/review-clusters');
   const [file,setFile]=useState<File|null>(null);
   const [msg,setMsg]=useState('');
+  const [product,setProduct]=useState('Demo Product');
+  const [theme,setTheme]=useState('delivery and product quality');
+  const [generated,setGenerated]=useState<any[]>([]);
+  const [saving,setSaving]=useState(false);
 
   async function upload(){
     if(!file)return;
     const f=new FormData();
     f.append('file',file);
-
     try{
       const r=await api<any>('/api/v1/domain/reviews/import',{method:'POST',body:f});
       setMsg(`Imported ${r.imported??r.inserted??0} reviews. ${r.duplicates??0} duplicates skipped.`);
       refresh();
-    }catch(e:any){
-      setMsg(e.message);
-    }
+    }catch(e:any){setMsg(e.message);}
   }
 
   async function analyze(){
@@ -667,16 +668,63 @@ export function Reviews(){
       const r=await api<any>('/api/v1/financial-lifecycle/complaint-clusters/run',{method:'POST'});
       setMsg(`Analysis complete using ${r.method||'configured pipeline'}.`);
       refresh();
-    }catch(e:any){
-      setMsg(e.message);
-    }
+    }catch(e:any){setMsg(e.message);}
+  }
+
+  function generate(){
+    const topic=theme.trim()||'overall experience';
+    const item=product.trim()||'the product';
+    const templates=[
+      {rating:5,text:`DEMO SAMPLE — The ${item} arrived as expected. I had a smooth experience with ${topic}, and the overall quality met my expectations.`},
+      {rating:4,text:`DEMO SAMPLE — Overall, I am happy with the ${item}. There is a little room to improve ${topic}, but the experience was positive.`},
+      {rating:3,text:`DEMO SAMPLE — The ${item} was okay. My experience with ${topic} was mixed, and clearer updates would make the experience better.`},
+      {rating:2,text:`DEMO SAMPLE — I was disappointed with the ${item}. The ${topic} did not meet my expectations and needs attention.`},
+      {rating:1,text:`DEMO SAMPLE — I had a poor experience with the ${item}. The issues around ${topic} were frustrating and need to be resolved.`}
+    ];
+    const shuffled=[...templates].sort(()=>Math.random()-.5);
+    setGenerated(shuffled.slice(0,3).map((x,i)=>({...x,customer_name:`Demo reviewer ${i+1}`,customer_id:null,product:item})));
+    setMsg('Generated 3 clearly labelled demo review drafts. These are local templates, not LLM output.');
+  }
+
+  async function saveGenerated(){
+    if(!generated.length)return;
+    setSaving(true);setMsg('');
+    let saved=0;
+    try{
+      for(const review of generated){
+        await api('/api/v1/domain/reviews',{method:'POST',body:JSON.stringify({
+          text:review.text,rating:review.rating,customer_name:review.customer_name,product:review.product
+        })});
+        saved++;
+      }
+      setGenerated([]);
+      setMsg(`Saved ${saved} demo review records. They are marked DEMO SAMPLE in their text.`);
+      refresh();
+    }catch(e:any){setMsg(`Saved ${saved} of ${generated.length}. ${e.message}`);}
+    finally{setSaving(false);}
   }
 
   return <>
-    <Heading title="Review lab" sub="Import customer feedback, analyse complaint themes and inspect semantic clusters."/>
-
+    <Heading title="Review lab" sub="Create clearly labelled sample feedback, import customer reviews and inspect complaint themes."/>
     <div className="two-col">
-      <Panel title="Import reviews">
+      <Panel title="AI review generator · temporary demo mode">
+        <p className="muted">Temporary local template generator while LLM integration is pending. No external AI is called; every generated review is labelled DEMO SAMPLE.</p>
+        <div className="form-grid">
+          <label>Product<input value={product} onChange={e=>setProduct(e.target.value)} placeholder="Product name"/></label>
+          <label>Review focus<input value={theme} onChange={e=>setTheme(e.target.value)} placeholder="Delivery, quality, support…"/></label>
+        </div>
+        <button className="primary" onClick={generate}>Generate sample reviews</button>
+        {generated.length>0&&<>
+          <div className="customer-review-list" style={{marginTop:16}}>
+            {generated.map((review,index)=><article className="customer-review" key={index}>
+              <div className="customer-review-head"><b>{review.customer_name}</b><span className="review-rating">{review.rating} / 5</span></div>
+              <p className="review-copy">{review.text}</p>
+            </article>)}
+          </div>
+          <button className="primary" disabled={saving} onClick={saveGenerated}>{saving?'Saving…':'Save demo reviews to workspace'}</button>
+        </>}
+      </Panel>
+      <Panel title="Import customer reviews">
         <div className="upload-box">
           <UploadCloud/>
           <input type="file" accept=".csv,text/csv" onChange={e=>setFile(e.target.files?.[0]||null)}/>
@@ -684,14 +732,12 @@ export function Reviews(){
           <small>Merchant-authorized CSV exports only. No unauthorized scraping.</small>
         </div>
       </Panel>
-
-      <Panel title="Semantic analysis">
-        <p className="muted">Run the configured embedding / similarity pipeline and refresh cluster results.</p>
-        <button className="primary" onClick={analyze}>Analyse reviews</button>
-        {msg&&<p className="notice">{msg}</p>}
-      </Panel>
     </div>
-
+    <Panel title="Complaint analysis">
+      <p className="muted">Run the configured analysis pipeline and refresh complaint clusters.</p>
+      <button className="primary" onClick={analyze}>Analyse reviews</button>
+      {msg&&<p className="notice">{msg}</p>}
+    </Panel>
     <Panel title="Complaint clusters">
       <Table columns={['cluster_id','count','avg_rating','analyzed_at']} rows={data||[]}/>
       {error&&<div className="error">{error}</div>}
