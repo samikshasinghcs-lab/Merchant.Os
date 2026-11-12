@@ -6,7 +6,7 @@ import {
   RefreshCw, ShieldCheck, Wallet
 } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
-import type { ColDef, RowClickedEvent } from 'ag-grid-community';
+import type { ColDef, GridApi, GridReadyEvent, RowClickedEvent } from 'ag-grid-community';
 import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -68,11 +68,47 @@ export default function FinancialLifecycle() {
   const [selected, setSelected] = useState<AnyRecord | undefined>(undefined);
   const [form, setForm] = useState(blankCase);
   const [quickSearch, setQuickSearch] = useState('');
+  const [selectedCount, setSelectedCount] = useState(0);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [clusterBusy, setClusterBusy] = useState(false);
   const gridRef = useRef<AgGridReact<AnyRecord>>(null);
+
+  const saveGridState = useCallback((api: GridApi<AnyRecord>) => {
+    try {
+      localStorage.setItem('merchantos.financialGridState', JSON.stringify({
+        columns: api.getColumnState(),
+        filters: api.getFilterModel(),
+        search: quickSearch
+      }));
+    } catch { /* private browsing or storage quota: grid remains usable */ }
+  }, [quickSearch]);
+
+  const onGridReady = useCallback((event: GridReadyEvent<AnyRecord>) => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('merchantos.financialGridState') || 'null') as AnyRecord | null;
+      if (saved?.columns) event.api.applyColumnState({ state: saved.columns, applyOrder: true });
+      if (saved?.filters) event.api.setFilterModel(saved.filters);
+      if (typeof saved?.search === 'string') setQuickSearch(saved.search);
+    } catch { /* ignore invalid or stale saved preferences */ }
+  }, []);
+
+  const exportSelected = () => gridRef.current?.api?.exportDataAsCsv({
+    onlySelected: true,
+    fileName: 'merchantos-selected-financial-cases.csv'
+  });
+
+  const resetGridView = () => {
+    const api = gridRef.current?.api;
+    if (!api) return;
+    api.resetColumnState();
+    api.setFilterModel(null);
+    setQuickSearch('');
+    api.deselectAll();
+    setSelectedCount(0);
+    try { localStorage.removeItem('merchantos.financialGridState'); } catch { /* optional */ }
+  };
 
   const load = useCallback(async () => {
     setError('');
@@ -253,33 +289,42 @@ export default function FinancialLifecycle() {
       </section>
 
       <section className="fl-card">
-        <h3><Activity size={17} /> Cases workspace · AG Grid</h3>
-        <p className="fl-muted">Select a row to investigate. Sort, filter, quick search and CSV export are enabled.</p>
+        <div className="fl-head">
+          <div><h3><Activity size={17} /> Financial operations · AG Grid</h3><p className="fl-muted">A merchant operations data workspace: 13 case fields, multi-row selection, per-column filters, sortable/resizable columns, saved layout, keyboard navigation and CSV export.</p></div>
+          <span className="fl-muted" aria-live="polite">{selectedCount} selected · {cases.length} total cases</span>
+        </div>
         <div className="fl-form" style={{ marginBottom: 10 }}>
-          <Field label="Quick search" value={quickSearch} onChange={setQuickSearch} />
-          {['OPEN', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'].map(status => <button key={status} type="button" className="fl-btn" onClick={() => setQuickSearch(status)}>{status}</button>)}
-          <button type="button" className="fl-btn" onClick={() => setQuickSearch('')}>Clear</button>
-          <button type="button" className="fl-btn" onClick={() => gridRef.current?.api?.exportDataAsCsv()}>Export CSV</button>
-          <button type="button" className="fl-btn" onClick={() => {
-            try { localStorage.setItem('merchantos.savedFilter', JSON.stringify({ filters: gridRef.current?.api?.getFilterModel() ?? {}, search: quickSearch })); } catch { /* storage may be disabled */ }
-          }}>Save filter</button>
-          <button type="button" className="fl-btn" onClick={() => {
-            try {
-              const saved = JSON.parse(localStorage.getItem('merchantos.savedFilter') || 'null') as AnyRecord | null;
-              if (saved) { gridRef.current?.api?.setFilterModel(saved.filters ?? {}); setQuickSearch(String(saved.search ?? '')); }
-            } catch { setError('Saved filter could not be loaded.'); }
-          }}>Load filter</button>
+          <Field label="Search every visible field" value={quickSearch} onChange={setQuickSearch} />
+          {['OPEN', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'].map(status => <button key={status} type="button" className="fl-btn" onClick={() => { setQuickSearch(''); gridRef.current?.api?.setFilterModel({ status: { filterType: 'text', type: 'equals', filter: status } }); }}>{status}</button>)}
+          <button type="button" className="fl-btn" onClick={() => { setQuickSearch(''); gridRef.current?.api?.setFilterModel(null); }}>Clear filters</button>
+          <button type="button" className="fl-btn" onClick={() => gridRef.current?.api?.exportDataAsCsv({ fileName: 'merchantos-financial-cases.csv' })}>Export filtered CSV</button>
+          <button type="button" className="fl-btn" disabled={!selectedCount} onClick={exportSelected}>Export selected ({selectedCount})</button>
+          <button type="button" className="fl-btn" onClick={() => { if (gridRef.current?.api) saveGridState(gridRef.current.api); }}>Save grid layout</button>
+          <button type="button" className="fl-btn" onClick={resetGridView}>Reset grid</button>
+          <button type="button" className="fl-btn" onClick={() => { gridRef.current?.api?.deselectAll(); setSelectedCount(0); }}>Clear selection</button>
         </div>
         <div className="fl-scroll">
-          <div style={{ height: 440, width: '100%', minWidth: 900 }}>
+          <div style={{ height: 480, width: '100%', minWidth: 900 }}>
             <AgGridReact<AnyRecord>
               ref={gridRef}
               rowData={cases}
               columnDefs={columnDefs}
               quickFilterText={quickSearch}
-              defaultColDef={{ sortable: true, filter: true, resizable: true, floatingFilter: true }}
-              rowSelection={{ mode: 'singleRow' }}
+              defaultColDef={{ sortable: true, filter: true, resizable: true, floatingFilter: true, minWidth: 115 }}
+              rowSelection={{ mode: 'multiRow', checkboxes: true, headerCheckbox: true }}
+              getRowId={params => String(params.data.id)}
+              onGridReady={onGridReady}
               onRowClicked={(event: RowClickedEvent<AnyRecord>) => setSelected(event.data)}
+              onSelectionChanged={event => setSelectedCount(event.api.getSelectedRows().length)}
+              onFilterChanged={event => saveGridState(event.api)}
+              onSortChanged={event => saveGridState(event.api)}
+              onColumnMoved={event => saveGridState(event.api)}
+              onColumnVisible={event => saveGridState(event.api)}
+              onColumnResized={event => { if (event.finished) saveGridState(event.api); }}
+              pagination
+              paginationPageSize={25}
+              paginationPageSizeSelector={[10, 25, 50, 100]}
+              suppressCellFocus={false}
               animateRows
             />
           </div>
