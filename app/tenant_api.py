@@ -118,11 +118,13 @@ def tenant_customers(p=Depends(principal)):
                 row['ratings'].append(int(review.rating))
             if review.created_at and (row['latest_review'] is None or review.created_at.isoformat() > row['latest_review']):
                 row['latest_review'] = review.created_at.isoformat()
-        return [{
-            **row,
-            'avg_rating': round(sum(row.pop('ratings')) / len(row['ratings']), 2) if row['ratings'] else None,
-            'source': 'ILLUSTRATIVE_SYNTHETIC' if row['customer_id'].startswith('CUST-') else 'TENANT_RECORD',
-        } for row in groups.values()]
+        output = []
+        for row in groups.values():
+            ratings = row.pop('ratings')
+            row['avg_rating'] = round(sum(ratings) / len(ratings), 2) if ratings else None
+            row['source'] = 'ILLUSTRATIVE_SYNTHETIC' if row['customer_id'].startswith('CUST-') else 'TENANT_RECORD'
+            output.append(row)
+        return output
 
 
 @router.get('/customers/{customer_id}')
@@ -304,5 +306,71 @@ def tenant_root_cause(p=Depends(principal)):
             'findings': findings,
             'source': 'TENANT_SCOPED_RECORDS',
             'limitations': 'Signals combine low-rated linked reviews and dispute records. They are descriptive associations, not proof of causation.',
+        }
+
+@router.get('/reviews')
+def tenant_review_list(p=Depends(principal)):
+    with tenant_session(p['tenant_id']) as s:
+        rows = s.scalars(select(TenantReview).where(
+            TenantReview.tenant_id == p['tenant_id']
+        ).order_by(TenantReview.created_at.desc()).limit(1000)).all()
+        return [{
+            'id': x.id, 'customer_id': x.customer_id,
+            'customer_name': x.customer_name, 'order_id': x.order_id,
+            'product': x.product, 'rating': x.rating, 'text': x.text,
+            'category': x.category, 'severity': x.severity,
+            'cluster_id': x.complaint_cluster_id,
+            'created_at': x.created_at.isoformat(),
+        } for x in rows]
+
+
+@router.get('/review-clusters')
+def tenant_review_cluster_summary(p=Depends(principal)):
+    with tenant_session(p['tenant_id']) as s:
+        rows = s.scalars(select(TenantReview).where(
+            TenantReview.tenant_id == p['tenant_id']
+        )).all()
+        grouped = {}
+        for review in rows:
+            key = review.complaint_cluster_id or review.category or 'UNCLASSIFIED'
+            item = grouped.setdefault(key, {'cluster_id': key, 'count': 0, 'ratings': [], 'analyzed_at': None})
+            item['count'] += 1
+            if review.rating is not None:
+                item['ratings'].append(int(review.rating))
+            if review.created_at and (item['analyzed_at'] is None or review.created_at.isoformat() > item['analyzed_at']):
+                item['analyzed_at'] = review.created_at.isoformat()
+        output = []
+        for item in grouped.values():
+            ratings = item.pop('ratings')
+            item['avg_rating'] = round(sum(ratings) / len(ratings), 2) if ratings else None
+            item['avg_sentiment'] = None
+            output.append(item)
+        return sorted(output, key=lambda x: (-x['count'], x['cluster_id']))
+
+
+@router.get('/dashboard')
+def tenant_dashboard(p=Depends(principal)):
+    with tenant_session(p['tenant_id']) as s:
+        orders = s.scalars(select(TenantOrder).where(TenantOrder.tenant_id == p['tenant_id'])).all()
+        reviews = s.scalars(select(TenantReview).where(TenantReview.tenant_id == p['tenant_id'])).all()
+        disputes = s.scalars(select(TenantDispute).where(TenantDispute.tenant_id == p['tenant_id'])).all()
+        refunds = s.scalars(select(TenantRefund).where(TenantRefund.tenant_id == p['tenant_id'])).all()
+        totals = {}
+        for order in orders:
+            totals.setdefault(order.currency, {'gross': 0.0, 'orders': 0})
+            totals[order.currency]['gross'] += float(order.amount)
+            totals[order.currency]['orders'] += 1
+        refund_totals = {}
+        for refund in refunds:
+            refund_totals[refund.currency] = refund_totals.get(refund.currency, 0.0) + float(refund.amount)
+        return {
+            'orders': len(orders), 'gross_totals': totals,
+            'reviews': len(reviews),
+            'disputes': sum(1 for x in disputes if x.status in {'OPEN', 'ILLUSTRATIVE_OPEN'}),
+            'refund_count': len(refunds),
+            'refund_totals': refund_totals,
+            'refund_total': sum(refund_totals.values()),
+            'demo': any(x.id.startswith('demo-') for x in orders),
+            'source': 'TENANT_SCOPED_RECORDS',
         }
 
