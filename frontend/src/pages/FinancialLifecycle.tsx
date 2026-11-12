@@ -180,8 +180,8 @@ export default function FinancialLifecycle() {
         .fl-scroll{width:100%;overflow-x:auto}
         .fl-invest-box{border:1px solid var(--border,#e2e8f0);border-radius:12px;padding:13px;min-width:0}
         .fl-invest-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-        .fl-decision-sticky{position:sticky;bottom:6px;background:var(--panel,#fff);border:1px solid var(--border,#cbd5e1);box-shadow:0 8px 30px #0f172a20;border-radius:13px;padding:12px;z-index:3}
-        @media(max-width:640px){.fl-invest-grid,.fl-form{grid-template-columns:1fr}.fl-decision-sticky{bottom:4px}}
+        .fl-decision-sticky{position:relative;bottom:auto;background:var(--panel,#fff);border:1px solid var(--border,#cbd5e1);box-shadow:0 8px 30px #0f172a20;border-radius:13px;padding:12px;z-index:1}
+        @media(max-width:640px){.fl-invest-grid,.fl-form{grid-template-columns:1fr}.fl-decision-sticky{position:relative;bottom:auto}}
       `}</style>
 
       <header className="fl-head">
