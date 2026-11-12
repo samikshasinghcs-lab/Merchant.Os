@@ -626,7 +626,7 @@ export function Reviews(){
     f.append('file',file);
 
     try{
-      const r=await api<any>('/api/reviews/import/generic_csv',{method:'POST',body:f});
+      const r=await api<any>('/api/v1/domain/reviews/import',{method:'POST',body:f});
       setMsg(`Imported ${r.imported??r.inserted??0} reviews. ${r.duplicates??0} duplicates skipped.`);
       refresh();
     }catch(e:any){
@@ -1080,7 +1080,7 @@ export function Evidence(){
     f.append('file',file);
 
     try{
-      await api(`/api/evidence/upload?order_id=${encodeURIComponent(order)}&evidence_type=${encodeURIComponent(type)}&description=${encodeURIComponent(description)}`,{
+      await api(`/api/v1/domain/evidence/upload?order_id=${encodeURIComponent(order)}&evidence_type=${encodeURIComponent(type)}&description=${encodeURIComponent(description)}`,{
         method:'POST',
         body:f
       });
@@ -1106,7 +1106,7 @@ export function Evidence(){
       <button className="primary" onClick={upload} disabled={!file||!order}>Upload evidence</button>
     </Panel>
     <Panel title="Stored evidence files">
-      <Table columns={['id','original_name','mime_type','size_bytes','integrity_status','created_at']} rows={data||[]}/>
+      <Table columns={['id','order_id','evidence_type','description','integrity_status','created_at']} rows={data||[]}/>
       {error&&<p className="error">{error}</p>}
       <button className="secondary" onClick={refresh}>Refresh</button>
     </Panel>
