@@ -132,7 +132,7 @@ def seed_tenant_demo_data(session, tenant_id: str, actor_user_id: str) -> dict:
             capture_id=None, amount=amount, currency="INR", reason=reason,
             status="PROPOSED_DEMO", idempotency_key=_id(tenant_id, "refund-key", f"{index:02d}"),
             paypal_refund_id=None, paypal_status=None,
-            created_at=now - timedelta(days=5 - index),
+            created_at=now - timedelta(days=max(0, 5 - index)),
         ))
         counts["refund_proposals"] += 1
 
