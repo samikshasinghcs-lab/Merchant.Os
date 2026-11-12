@@ -489,8 +489,15 @@ def run_tenant_complaint_clustering(body: dict | None = None, p=Depends(principa
         assignments = {review_id: cluster["cluster_id"] for cluster in result["clusters"] for review_id in cluster["review_ids"]}
         for review in reviews:
             review.complaint_cluster_id = assignments.get(review.id)
-        audit(s, p, "TENANT_COMPLAINTS_CLUSTERED", "REVIEW_SET", t,
-              {"review_count": result["review_count"], "cluster_count": len(result["clusters"]), "method": result["method"], "threshold": threshold})
+        audit_detail = {"review_count": result["review_count"], "cluster_count": len(result["clusters"]), "method": result["method"], "threshold": threshold}
+        latest = s.scalar(select(TenantAuditEvent).where(
+            TenantAuditEvent.tenant_id == t,
+            TenantAuditEvent.event == "TENANT_COMPLAINTS_CLUSTERED",
+        ).order_by(TenantAuditEvent.created_at.desc()).limit(1))
+        # A repeated identical clustering request is idempotent in the audit
+        # stream; only a changed result/configuration creates a new event.
+        if not latest or latest.detail != audit_detail:
+            audit(s, p, "TENANT_COMPLAINTS_CLUSTERED", "REVIEW_SET", t, audit_detail)
     result["scope"] = "authenticated_tenant_only"
     result["assignments_persisted"] = len(assignments)
     result["external_processing"] = "enabled_by_explicit_opt_in" if os.getenv("MERCHANTOS_ALLOW_EXTERNAL_REVIEW_PROCESSING", "false").lower() in {"1", "true", "yes"} else "disabled"
