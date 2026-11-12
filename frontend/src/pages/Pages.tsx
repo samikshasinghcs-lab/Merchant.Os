@@ -1092,66 +1092,177 @@ export function Evidence(){
 
 /* AUDIT */
 
-export function Audit(){
-  const {data,error}=useLoad<any[]>('/api/audit');
+export function Audit() {
+  const {data,error,busy} = useLoad<any[]>('/api/audit');
 
-  return <>
-    <Heading title="Trust & audit" sub="A chronological record of consequential operational and financial events."/>
-    <Panel title="Audit history">
-      <Table
-        columns={['id','event','actor','entity','detail','created_at']}
-        rows={(data||[]).map(x=>({
-          ...x,
-          detail:typeof x.detail==='string'
-            ?x.detail.slice(0,100)
-            :JSON.stringify(x.detail).slice(0,100)
-        }))}
+  function parseDetail(value:any) {
+    if (typeof value !== 'string') return value || {};
+
+    try {
+      return JSON.parse(value);
+    } catch {
+      return {description:value};
+    }
+  }
+
+  function format(value:any) {
+    return String(value ?? 'Not recorded')
+      .replace(/_/g,' ')
+      .replace(/\b\w/g,c=>c.toUpperCase());
+  }
+
+  function formatDate(value:any) {
+    if (!value) return 'Timestamp unavailable';
+
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime())
+      ? 'Invalid timestamp'
+      : date.toLocaleString();
+  }
+
+  return (
+    <>
+      <Heading
+        title="Trust & audit"
+        sub="A chronological record of consequential operational and financial events."
       />
-      {error&&<p className="error">{error}</p>}
-    </Panel>
-  </>;
-}
 
-/* ROOT CAUSE INTELLIGENCE */
+      {error && <div className="error">{error}</div>}
 
-export function RootCause(){
-  const {data,error,busy,refresh}=useLoad<Any>('/api/root-cause');
-  const findings=Array.isArray(data?.findings)?data.findings:[];
+      <Panel
+        title="Audit history"
+        extra={
+          <span className="muted">
+            {(data || []).length} recorded events
+          </span>
+        }
+      >
 
-  return <>
-    <Heading
-      title="Root-cause intelligence"
-      sub="Explore patterns across feedback, products and operational records."
-      action={<button className="secondary" onClick={refresh}><RefreshCw size={14}/> Refresh</button>}
-    />
-
-    {error&&<div className="error">{error}</div>}
-
-    <div className="notice warning">
-      Observed associations are signals to investigate, not proof of causation.
-    </div>
-
-    <Panel title="Observed findings">
-      {busy
-        ? <p className="muted">Loading root-cause analysis…</p>
-        : <div className="insight-list">
-            {findings.map((item:any,index:number)=>
-              <article className="insight" key={item.id||index}>
-                <span className="insight-icon"><Activity size={16}/></span>
-                <div>
-                  <b>{item.title||item.category||item.product||'Operational pattern'}</b>
-                  <p>{item.summary||item.description||item.detail||'Structured finding returned.'}</p>
-                </div>
-              </article>
-            )}
-            {!findings.length&&
-              <div className="empty-state">
-                <b>No root-cause findings yet</b>
-                <p>Import feedback and run review analysis to generate findings.</p>
-              </div>
-            }
+        {busy ? (
+          <p className="muted">Loading audit history…</p>
+        ) : !data?.length ? (
+          <div className="empty-state">
+            <b>No audit events recorded</b>
+            <p>Operational events will appear here.</p>
           </div>
-      }
-    </Panel>
-  </>;
-}
+        ) : (
+
+          <div className="audit-timeline">
+
+            {data.map((item:any,index:number) => {
+
+              const detail = parseDetail(item.detail);
+
+              const event =
+                item.event ||
+                item.action ||
+                item.event_type ||
+                item.type ||
+                'Operational event';
+
+              const actor =
+                item.actor ||
+                item.actor_email ||
+                item.user_id ||
+                'System';
+
+              const entity =
+                item.entity ||
+                item.entity_type ||
+                item.resource ||
+                'General';
+
+              const entries =
+                typeof detail === 'object' && detail !== null
+                  ? Object.entries(detail).filter(
+                      ([key]) =>
+                        !/(password|token|secret|authorization|api_key)/i.test(key)
+                    )
+                  : [];
+
+              return (
+                <article
+                  className="audit-entry"
+                  key={item.id || index}
+                >
+
+                  <div className="audit-marker">
+                    <span><ShieldCheck size={16}/></span>
+                  </div>
+
+                  <div className="audit-body">
+
+                    <div className="audit-header">
+
+                      <div>
+                        <h4>{format(event)}</h4>
+
+                        <small>
+                          {formatDate(item.created_at)}
+                        </small>
+                      </div>
+
+                      <span className="audit-index">
+                        #{index + 1}
+                      </span>
+
+                    </div>
+
+                    <div className="audit-meta">
+
+                      <span>
+                        Actor: <b>{format(actor)}</b>
+                      </span>
+
+                      <span>
+                        Entity: <b>{format(entity)}</b>
+                      </span>
+
+                    </div>
+
+                    {entries.length > 0 && (
+
+                      <div className="audit-details">
+
+                        {entries.map(([key,value]:any) => (
+
+                          <div
+                            className="audit-detail-item"
+                            key={key}
+                          >
+                            <small>{format(key)}</small>
+
+                            <b>
+                              {typeof value === 'object'
+                                ? JSON.stringify(value)
+                                : String(value ?? '—')}
+                            </b>
+                          </div>
+
+                        ))}
+
+                      </div>
+
+                    )}
+
+                    {typeof detail === 'string' && (
+                      <p className="audit-description">
+                        {detail}
+                      </p>
+                    )}
+
+                  </div>
+
+                </article>
+              );
+            })}
+
+          </div>
+
+        )}
+
+      </Panel>
+    </>
+  );
+        }
