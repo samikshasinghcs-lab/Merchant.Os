@@ -379,7 +379,7 @@ export function Dashboard(){
       {aiResult?.analysis ? <>
         <p>{aiResult.analysis.executive_summary}</p>
         {(['observed_signals','hypotheses_to_verify','recommended_next_steps'] as const).map(key=><section className="review-analysis-section" key={key}><h4>{({observed_signals:'What the records show',hypotheses_to_verify:'Customer reviews to inspect',recommended_next_steps:'Suggested next steps'} as any)[key]}</h4>{key==='hypotheses_to_verify'?<div className="review-snippet-grid">{(aiResult.analysis[key]||[]).map((v:string,i:number)=><article className="review-snippet" key={i}><span className="review-snippet-no">REVIEW {i+1}</span><p>{v}</p></article>)}</div>:<ul className="review-analysis-list">{(aiResult.analysis[key]||[]).map((v:string,i:number)=><li key={i}>{v}</li>)}</ul>}</section>)}<small className="muted">Rules-based review triage · tenant workspace records · advisory only.</small>
-        <small className="muted">Temporary review system · rules-based review triage · tenant workspace records only · not AI-generated · advisory only.</small>
+        
       </> : <p className="muted">Generate an operational summary from this tenant's reviews, refunds and disputes.</p>}
     </Panel>
     <div className="two-col">
