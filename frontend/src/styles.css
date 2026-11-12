@@ -607,3 +607,155 @@ body {
     padding: 15px 0;
   }
 }
+/* AUDIT TIMELINE — RESPONSIVE */
+
+.audit-timeline {
+  display: grid;
+  gap: 0;
+}
+
+.audit-entry {
+  display: grid;
+  grid-template-columns: 34px minmax(0,1fr);
+  gap: 12px;
+  padding: 19px 0;
+  border-bottom: 1px solid #e5e9df;
+}
+
+.audit-entry:last-child {
+  border-bottom: 0;
+}
+
+.audit-marker {
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+.audit-marker::after {
+  content: "";
+  position: absolute;
+  top: 32px;
+  bottom: -20px;
+  width: 1px;
+  background: #dce3d3;
+}
+
+.audit-entry:last-child .audit-marker::after {
+  display: none;
+}
+
+.audit-marker span {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  background: #e9efdc;
+  color: #526c29;
+  border-radius: 50%;
+  z-index: 1;
+}
+
+.audit-body {
+  min-width: 0;
+}
+
+.audit-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.audit-header h4 {
+  margin: 0;
+  font: 700 12px Manrope;
+  color: #243126;
+}
+
+.audit-header small {
+  display: block;
+  margin-top: 6px;
+  font-size: 9px;
+  color: #83907d;
+}
+
+.audit-index {
+  color: #84907f;
+  font-size: 9px;
+}
+
+.audit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 18px;
+  margin-top: 12px;
+  font-size: 9px;
+  color: #788474;
+}
+
+.audit-meta b {
+  color: #354433;
+}
+
+.audit-details {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.audit-detail-item {
+  min-width: 0;
+  padding: 11px;
+  background: #f0f2e9;
+  border: 1px solid #e2e7db;
+}
+
+.audit-detail-item small {
+  display: block;
+  margin-bottom: 6px;
+  color: #7b8876;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+}
+
+.audit-detail-item b {
+  display: block;
+  font-size: 10px;
+  color: #354433;
+  overflow-wrap: anywhere;
+}
+
+.audit-description {
+  font-size: 11px;
+  line-height: 1.7;
+  color: #667363;
+  overflow-wrap: anywhere;
+  margin-top: 12px;
+}
+
+@media(max-width:560px) {
+  .audit-entry {
+    grid-template-columns: 27px minmax(0,1fr);
+    gap: 9px;
+    padding: 16px 0;
+  }
+
+  .audit-marker span {
+    width: 27px;
+    height: 27px;
+  }
+
+  .audit-marker::after {
+    top: 27px;
+  }
+
+  .audit-details {
+    grid-template-columns: 1fr;
+  }
+
+  .audit-header h4 {
+    font-size: 11px;
+  }
+}
