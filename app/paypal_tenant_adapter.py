@@ -2,8 +2,20 @@
 from __future__ import annotations
 import requests
 def get_paypal_credentials(tenant_id, environment):
-    # Lazy import keeps the adapter independently testable and avoids loading identity
-    # dependencies until a real tenant credential lookup is requested.
+    # Prefer the credentials entered in MerchantOS' PayPal Sandbox connection
+    # screen. The older operations credential store remains a backward-compatible
+    # fallback for tenants that configured it before the unified connection UI.
+    try:
+        from .paypal_tenant import _connection
+        connection = _connection(tenant_id)
+        if connection.get("environment") == environment:
+            return {
+                "client_id": connection["client_id"],
+                "client_secret": connection["client_secret"],
+                "environment": connection["environment"],
+            }
+    except Exception:
+        pass
     from .tenant_operations import get_paypal_credentials as lookup
     return lookup(tenant_id, environment)
 

@@ -354,6 +354,11 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
     try {
       const result = await api(`/api/v1/financial-lifecycle/cases/${selected.id}/detail`);
       setDetail(asObject(result));
+      if (['REFUND', 'RETURN'].includes(String(selected.case_type))) {
+        const approvalRows = asArray(await api('/api/v1/operations/financial/refund-approvals'));
+        const requestKey = `case-${String(selected.id).replaceAll('-', '')}`;
+        setApproval(approvalRows.find(item => item.request_key === requestKey) ?? null);
+      }
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : 'Case detail failed to load.');
     } finally {
@@ -466,13 +471,55 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
       const result = asObject(await api(`/api/v1/financial-lifecycle/cases/${selected.id}/refund-approval`, {
         method: 'POST', body: JSON.stringify({})
       }));
-      setApproval(result);
-      onMessage(`Linked PayPal approval request ${result.approval_id ?? ''} · ${result.status ?? ''}. Independent approval is still required.`);
+      setApproval({ ...result, id: result.approval_id ?? result.id });
+      onMessage(`Linked PayPal approval request ${result.approval_id ?? result.id ?? ''} · ${result.status ?? ''}. Independent approval is still required.`);
+      await refresh();
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : 'Refund approval request failed.');
     } finally {
       setBusy(false);
     }
+  }
+
+  async function reconcileRefund() {
+    if (!approval?.id) return;
+    setBusy(true);
+    try {
+      const result = asObject(await api(`/api/v1/operations/financial/refund-approvals/${approval.id}/reconcile`, { method: 'POST', body: JSON.stringify({}) }));
+      setApproval({ ...approval, ...result });
+      onMessage(`PayPal capture reconciliation: ${result.status ?? 'checked'}.`);
+      await refresh();
+    } catch (cause) {
+      onError(cause instanceof Error ? cause.message : 'PayPal reconciliation failed.');
+    } finally { setBusy(false); }
+  }
+
+  async function decideRefund(decision: 'APPROVE' | 'REJECT') {
+    if (!approval?.id) return;
+    setBusy(true);
+    try {
+      const result = asObject(await api(`/api/v1/operations/financial/refund-approvals/${approval.id}/decision`, {
+        method: 'POST', body: JSON.stringify({ decision, note: 'Reviewed customer complaint in MerchantOS.' })
+      }));
+      setApproval({ ...approval, ...result });
+      onMessage(`Independent refund decision: ${result.status ?? decision}. ${result.note ?? ''}`);
+      await refresh();
+    } catch (cause) {
+      onError(cause instanceof Error ? cause.message : 'Independent approval failed. The requester cannot approve their own request.');
+    } finally { setBusy(false); }
+  }
+
+  async function executeRefund() {
+    if (!approval?.id) return;
+    setBusy(true);
+    try {
+      const result = asObject(await api(`/api/v1/operations/financial/refund-approvals/${approval.id}/execute`, { method: 'POST', body: JSON.stringify({}) }));
+      setApproval({ ...approval, execution: result, status: result.status === 'SUCCEEDED' ? 'EXECUTED' : approval.status });
+      onMessage(`PayPal Sandbox refund: ${result.provider_status ?? result.status ?? 'UNKNOWN'} · Refund ID: ${result.provider_refund_id ?? 'not confirmed'}`);
+      await refresh();
+    } catch (cause) {
+      onError(cause instanceof Error ? cause.message : 'PayPal Sandbox refund execution failed.');
+    } finally { setBusy(false); }
   }
 
   async function runWorkflow() {
@@ -594,7 +641,20 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
           <button className="fl-btn" style={{ background: '#991b1b' }} disabled={!canDecide} onClick={() => void decide('REJECT')}>Reject</button>
         </div>
         <small className="fl-muted">Approval is a human proposal only. Refunds still require separate reconciliation, independent approver and PayPal Sandbox execution.</small>
-        {['RETURN', 'REFUND'].includes(String(selected.case_type)) && caseData.status === 'UNDER_REVIEW' && <div style={{ marginTop: 10 }}><button type="button" className="fl-btn" disabled={busy} onClick={() => void requestRefundApproval()}>Create linked PayPal approval request</button>{approval && <p className="fl-muted">Approval {approval.approval_id} · {approval.status}</p>}</div>}
+        {['RETURN', 'REFUND'].includes(String(selected.case_type)) && <div className="fl-invest-box" style={{ marginTop: 12 }}>
+          <h4>PayPal Sandbox refund lifecycle</h4>
+          {!approval?.id && <button type="button" className="fl-btn" disabled={busy || caseData.status !== 'UNDER_REVIEW'} onClick={() => void requestRefundApproval()}>Create linked refund request</button>}
+          {approval?.id && <>
+            <p className="fl-muted">Request {String(approval.id).slice(0, 8)} · {approval.status} · {approval.currency ?? detail.order?.currency ?? ''} {approval.amount ?? selected.requested_amount}</p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {approval.status === 'PENDING_RECONCILIATION' && <button type="button" className="fl-btn" disabled={busy} onClick={() => void reconcileRefund()}>Reconcile with PayPal</button>}
+              {approval.status === 'PENDING_APPROVAL' && <><button type="button" className="fl-btn" disabled={busy} onClick={() => void decideRefund('APPROVE')}>Independent OWNER/ADMIN approve</button><button type="button" className="fl-btn" style={{ background: '#991b1b' }} disabled={busy} onClick={() => void decideRefund('REJECT')}>Reject refund</button></>}
+              {approval.status === 'APPROVED' && <button type="button" className="fl-btn" disabled={busy} onClick={() => void executeRefund()}>Execute PayPal Sandbox refund</button>}
+            </div>
+            {approval.execution && <p><b>Provider:</b> PAYPAL SANDBOX · <b>Status:</b> {approval.execution.provider_status ?? approval.execution.status} · <b>Refund ID:</b> {approval.execution.provider_refund_id ?? 'Not confirmed'}</p>}
+            <small className="fl-muted">Maker/checker separation applies: the person who requested the refund cannot approve it. Execution is restricted to the recorded approver. Ambiguous provider outcomes are never retried automatically.</small>
+          </>}
+        </div>}
       </div>
     </section>
   );

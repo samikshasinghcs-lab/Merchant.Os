@@ -137,3 +137,16 @@ MerchantOS now includes an isolated `app/deeptech/` package with deterministic e
 This layer is **experimental and advisory**. It does not authorize or execute payments, does not claim trained fraud AI, and is not a production digital twin. See [`docs/deeptech/ARCHITECTURE.md`](docs/deeptech/ARCHITECTURE.md) and [`docs/deeptech/DEMO_AND_VALIDATION.md`](docs/deeptech/DEMO_AND_VALIDATION.md).
 
 Run its synthetic demonstration with `python -m app.deeptech.demo` and its tests with `python -m pytest -q`.
+
+
+## Customer storefront and complaint-to-refund demo
+
+The tenant-scoped customer journey is available at `/storefront` in the authenticated workspace:
+
+1. Connect a PayPal Developer **Sandbox** REST app (Client ID + Secret). The backend validates OAuth and stores the credentials encrypted using `MERCHANTOS_CREDENTIALS_KEY`; secrets are never returned to the browser after save.
+2. Publish a product catalogue and choose a public store slug. Set `PUBLIC_APP_URL=https://merchantos-web.vercel.app` on the Render API so PayPal returns the buyer to the correct Vercel page.
+3. Open `https://merchantos-web.vercel.app/store/<slug>` in a separate/private browser session. Choose a product and pay using a PayPal Sandbox personal/buyer account.
+4. PayPal redirects to `/store/complete`; MerchantOS captures the approved order and records it in the same tenant PostgreSQL domain database used by the dashboard. Capture IDs and payment state are accepted only from PayPal's response.
+5. The buyer can submit a complaint from the order confirmation page. MerchantOS stores it as tenant-scoped customer feedback and opens a linked Financial Lifecycle resolution case. The merchant reviews it under Financial Operations.
+
+Customer order links contain a random access token; only its SHA-256 hash is stored. The token expires after 30 days. Product prices are taken from the merchant catalogue, not accepted from the customer browser. This is a Sandbox demonstration, not a production storefront: add customer email delivery, fulfilment, rate limiting, CAPTCHA/abuse controls, and a formal privacy/retention review before public production use.
