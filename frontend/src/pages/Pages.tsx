@@ -14,10 +14,20 @@ function useLoad<T=any>(path:string){
 
   const load=()=>{
     setBusy(true);
-    api<T>(path)
+    setError('');
+    const attempt=(retry:boolean)=>api<T>(path)
       .then(setData)
-      .catch(e=>setError(e.message))
+      .catch((e:any)=>{
+        // Render may be waking from an idle period. Retry a transient browser
+        // network failure once before surfacing it as a broken page.
+        if(retry && e instanceof TypeError){
+          window.setTimeout(()=>attempt(false),1200);
+          return;
+        }
+        setError(e.message||'Could not load records.');
+      })
       .finally(()=>setBusy(false));
+    void attempt(true);
   };
 
   useEffect(load,[path]);
@@ -39,13 +49,13 @@ function Panel({title,children,extra}:{title:string,children:any,extra?:any}){
 }
 
 function Table({columns,rows,empty='No records available'}:{columns:string[],rows:any[],empty?:string}){
-  return <div className="table-wrap">
-    <table>
-      <thead><tr>{columns.map(c=><th key={c}>{c}</th>)}</tr></thead>
+  return <div className="table-wrap" style={{overflowX:'auto',width:'100%'}}>
+    <table style={{width:'100%',tableLayout:'auto'}}>
+      <thead><tr>{columns.map(c=><th key={c}>{c.replace(/_/g,' ')}</th>)}</tr></thead>
       <tbody>
         {rows.length
           ? rows.map((r,i)=><tr key={r.id||i}>
-              {columns.map(c=><td key={c}>{r[c]??'—'}</td>)}
+              {columns.map(c=>{const value=r[c]??'—';const label=typeof value==='string'?value:typeof value==='number'?String(value):undefined;return <td key={c} title={label} style={{whiteSpace:'normal',overflowWrap:'anywhere',maxWidth:260}}>{value}</td>;})}
             </tr>)
           : <tr><td colSpan={columns.length} className="empty">{empty}</td></tr>}
       </tbody>
@@ -320,9 +330,9 @@ export function Dashboard(){
       />
 
       <Metric
-        label="Refund value"
+        label="Proposed refund value"
         value={data?.refund_total!==undefined?money(data.refund_total):'—'}
-        caption="Recorded refund activity"
+        caption="Proposed demo refunds; not provider-executed"
         icon={Activity}
       />
     </div>

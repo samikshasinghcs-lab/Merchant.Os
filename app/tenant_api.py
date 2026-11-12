@@ -98,6 +98,11 @@ recommended_next_steps, data_limitations."""
         return {'provider': 'openrouter' if 'openrouter.ai' in base else 'openai_compatible',
                 'model': model, 'analysis': parsed, 'source': 'TENANT_SCOPED_RECORDS',
                 'financial_action_authorized': False, 'human_approval_required': True}
+    except requests.HTTPError as exc:
+        status = exc.response.status_code if exc.response is not None else "unknown"
+        raise HTTPException(502, f'LLM provider returned HTTP {status}. Check the configured provider key, model access and quota.')
+    except requests.Timeout:
+        raise HTTPException(504, 'LLM provider timed out. Retry once the provider is responsive.')
     except Exception as exc:
         raise HTTPException(502, 'LLM request failed or returned invalid structured output: ' + type(exc).__name__)
 
@@ -183,10 +188,12 @@ def tenant_customers(p=Depends(principal)):
                 'latest_review': None,
             })
             row['referenced_orders'] += 1
+        order_customer = {order.id: (order.customer_id or 'UNKNOWN') for order in orders}
+        order_customer_name = {order.id: (order.customer_name or 'Unknown') for order in orders}
         for review in reviews:
-            key = review.customer_id or 'UNKNOWN'
+            key = review.customer_id or order_customer.get(review.order_id) or 'UNKNOWN'
             row = groups.setdefault(key, {
-                'customer_id': key, 'customer_name': review.customer_name or 'Unknown',
+                'customer_id': key, 'customer_name': review.customer_name or order_customer_name.get(review.order_id) or 'Unknown',
                 'referenced_orders': 0, 'review_count': 0, 'ratings': [],
                 'latest_review': None,
             })

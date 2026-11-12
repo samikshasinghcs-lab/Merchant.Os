@@ -3,12 +3,13 @@ import {NavLink,Route,Routes,useLocation,useNavigate} from 'react-router-dom';
 import {Activity,AlertTriangle,ArrowDownLeft,ArrowUpRight,BriefcaseBusiness,Check,CheckCircle2,ChevronRight,ChartNoAxesCombined,FileCheck2,FileText,LayoutDashboard,LogOut,Menu,Receipt,Search,ShieldCheck,Users,WalletCards,Zap,LockKeyhole,Workflow,Command,Play,PanelLeftClose,PanelLeftOpen,X,Keyboard,LifeBuoy} from 'lucide-react';
 import type {LucideIcon} from 'lucide-react';
 import {api,token} from './lib/api';
-import {Dashboard,Customers,Transactions,Refunds,Disputes,Agreements,Milestones,Reviews,Audit,Evidence,RootCause,Login} from './pages/Pages';
+import {Dashboard,Customers,Transactions,Refunds,Disputes,Reviews,Audit,Evidence,RootCause,Login} from './pages/Pages';
 import ExecutionTimeline from './pages/ExecutionTimeline';
 import FinancialLifecycle from './pages/FinancialLifecycle';
 import Proof from './pages/Proof';
+import {StorefrontAdmin,StorefrontPage} from './pages/Storefront';
 
-const nav=[['Overview','/',LayoutDashboard],['Customer intelligence','/customers',Users],['Review lab','/reviews',Search],['Transactions','/transactions',WalletCards],['Execution timeline','/execution',Workflow],['Refund investigations','/refunds',ArrowDownLeft],['Dispute center','/disputes',AlertTriangle],['Agreements','/agreements',FileText],['Milestones','/milestones',BriefcaseBusiness],['Evidence vault','/evidence',FileCheck2],['Root-cause intelligence','/root-cause',ChartNoAxesCombined],['Trust & audit','/audit',ShieldCheck]] as const;
+const nav=[['Overview','/',LayoutDashboard],['Customer intelligence','/customers',Users],['Review lab','/reviews',Search],['Transactions','/transactions',WalletCards],['Execution timeline','/execution',Workflow],['Refund investigations','/refunds',ArrowDownLeft],['Dispute center','/disputes',AlertTriangle],['Evidence vault','/evidence',FileCheck2],['Root-cause intelligence','/root-cause',ChartNoAxesCombined],['Trust & audit','/audit',ShieldCheck]] as const;
 
 function ProductPreview(){
   const [tab,setTab]=useState(0);
@@ -62,7 +63,7 @@ const navGroups: {label:string;items:readonly NavItem[]}[] = [
     ['Transactions','/transactions',WalletCards], ['Refund investigations','/refunds',ArrowDownLeft], ['Dispute center','/disputes',AlertTriangle], ['Evidence vault','/evidence',FileCheck2]
   ]},
   { label: 'OPERATIONS & CONTROL', items: [
-    ['Execution timeline','/execution',Workflow], ['Financial operations','/financial-operations',WalletCards], ['Proof & status','/proof',ShieldCheck], ['Agreements','/agreements',FileText], ['Milestones','/milestones',BriefcaseBusiness], ['Trust & audit','/audit',ShieldCheck]
+    ['Execution timeline','/execution',Workflow], ['Financial operations','/financial-operations',WalletCards], ['Customer storefront','/storefront',Receipt], ['Proof & status','/proof',ShieldCheck], ['Agreements','/agreements',FileText], ['Milestones','/milestones',BriefcaseBusiness], ['Trust & audit','/audit',ShieldCheck]
   ]}
 ] as const;
 const allNav: NavItem[] = navGroups.flatMap(group => [...group.items]);
@@ -97,6 +98,7 @@ export default function App(){
     window.addEventListener('keydown',onKey);
     return()=>window.removeEventListener('keydown',onKey);
   },[]);
+  if(location.pathname.startsWith('/store/')) return <StorefrontPage/>;
   if(!authed){
     if(showLogin)return <Login onLogin={u=>{setUser(u);setAuthed(true);setShowLogin(false);}}/>;
     return <LandingPage onLogin={()=>setShowLogin(true)}/>;
@@ -135,7 +137,7 @@ export default function App(){
           <span className="env"><i/> Sandbox / Demo data</span><div className="avatar top-avatar" aria-label={`Signed in as ${user?.name||'Merchant'}`}>{(user?.name||'M')[0].toUpperCase()}</div>
         </div>
       </header>
-      <div className="global-pipeline" aria-label="Operational pipeline"><span>Reviews</span><b>→</b><span>AI</span><b>→</b><span>Grid</span><b>→</b><span>Approval</span><b>→</b><span>PayPal</span><b>→</b><span>Audit</span><a href="/proof" onClick={e=>{e.preventDefault();navTo('/proof')}}>Proof ↗</a><small>{health?.environment==='Sandbox'?'PayPal Sandbox · live money blocked':'PayPal environment unconfirmed'} · Render · {health?.commit||'commit unknown'} · {health?.uptime_seconds==null?'uptime unknown':`${health.uptime_seconds}s`} · AI: computed / llm when configured</small></div><div className="content"><Routes><Route path="/" element={<Dashboard/>}/><Route path="/customers" element={<Customers/>}/><Route path="/reviews" element={<Reviews/>}/><Route path="/root-cause" element={<RootCause/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/execution" element={<ExecutionTimeline/>}/><Route path="/financial-operations" element={<FinancialLifecycle/>}/><Route path="/proof" element={<Proof/>}/><Route path="/refunds" element={<Refunds/>}/><Route path="/disputes" element={<Disputes/>}/><Route path="/evidence" element={<Evidence/>}/><Route path="/agreements" element={<Agreements/>}/><Route path="/milestones" element={<Milestones/>}/><Route path="/audit" element={<Audit/>}/><Route path="*" element={<Dashboard/>}/></Routes></div>
+      <div className="global-pipeline" aria-label="Operational pipeline"><span>Reviews</span><b>→</b><span>AI</span><b>→</b><span>Grid</span><b>→</b><span>Approval</span><b>→</b><span>PayPal</span><b>→</b><span>Audit</span><a href="/proof" onClick={e=>{e.preventDefault();navTo('/proof')}}>Proof ↗</a><small>{health?.environment==='Sandbox'?'PayPal Sandbox · live money blocked':'PayPal environment unconfirmed'} · Render · {health?.commit||'commit unknown'} · {health?.uptime_seconds==null?'uptime unknown':`${health.uptime_seconds}s`} · AI: computed / llm when configured</small></div><div className="content"><Routes><Route path="/" element={<Dashboard/>}/><Route path="/customers" element={<Customers/>}/><Route path="/reviews" element={<Reviews/>}/><Route path="/root-cause" element={<RootCause/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/execution" element={<ExecutionTimeline/>}/><Route path="/financial-operations" element={<FinancialLifecycle/>}/><Route path="/storefront" element={<StorefrontAdmin/>}/><Route path="/proof" element={<Proof/>}/><Route path="/refunds" element={<Refunds/>}/><Route path="/disputes" element={<Disputes/>}/><Route path="/evidence" element={<Evidence/>}/><Route path="/audit" element={<Audit/>}/><Route path="*" element={<Dashboard/>}/></Routes></div>
     </main>
     {quickOpen&&<div className="quick-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setQuickOpen(false);}}><section className="quick-dialog" role="dialog" aria-modal="true" aria-labelledby="quick-title"><div className="quick-input-row"><Search size={18}/><label className="sr-only" id="quick-title" htmlFor="quick-search">Find a workspace</label><input id="quick-search" autoFocus placeholder="Search pages and workflows…" value={quickQuery} onChange={e=>setQuickQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&quickMatches[0]){navTo(quickMatches[0][1]);setQuickOpen(false);}}}/><kbd>ESC</kbd></div><div className="quick-results">{quickMatches.map(([label,path,Icon])=><button key={path} onClick={()=>{navTo(path);setQuickOpen(false);}}><Icon size={17}/><span>{label}</span><small>{path==='/'?'Overview':path}</small><ChevronRight size={14}/></button>)}{!quickMatches.length&&<p>No matching workspace pages.</p>}</div><footer><span><Keyboard size={13}/> Navigate with search</span><span>ENTER to open</span></footer></section></div>}
   </div>;

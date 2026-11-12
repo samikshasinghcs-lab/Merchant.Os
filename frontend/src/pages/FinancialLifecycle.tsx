@@ -83,7 +83,7 @@ export default function FinancialLifecycle() {
         api('/api/v1/financial-lifecycle/intelligence'),
         api('/api/v1/financial-lifecycle/reconciliation'),
         api('/api/v1/domain/orders'),
-        api('/api/v1/financial-lifecycle/complaint-clusters?threshold=0.28')
+        api('/api/v1/financial-lifecycle/complaint-clusters?threshold=0.15')
       ]);
       setOverview(asObject(o));
       setCases(asArray(c));
@@ -99,7 +99,7 @@ export default function FinancialLifecycle() {
   useEffect(() => { void load(); }, [load]);
 
   const columnDefs = useMemo<ColDef<AnyRecord>[]>(() => [
-    { field: 'id', headerName: 'Case ID', minWidth: 180 },
+    { field: 'id', headerName: 'Case ID', minWidth: 150, valueFormatter: params => params.value ? `CASE-${String(params.value).slice(0, 8).toUpperCase()}` : '' },
     { field: 'case_type', headerName: 'Type', cellRenderer: chip },
     { field: 'customer', headerName: 'Customer' },
     { field: 'product', headerName: 'Product' },
@@ -136,7 +136,7 @@ export default function FinancialLifecycle() {
     try {
       const result = asObject(await api(
         '/api/v1/financial-lifecycle/complaint-clusters/run',
-        { method: 'POST', body: JSON.stringify({ threshold: 0.28 }) }
+        { method: 'POST', body: JSON.stringify({ threshold: 0.15 }) }
       ));
       setClusters(result);
       setMessage(`Clustered ${result.review_count ?? 0} reviews using ${result.method ?? 'reported method'}.`);
@@ -180,8 +180,8 @@ export default function FinancialLifecycle() {
         .fl-scroll{width:100%;overflow-x:auto}
         .fl-invest-box{border:1px solid var(--border,#e2e8f0);border-radius:12px;padding:13px;min-width:0}
         .fl-invest-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-        .fl-decision-sticky{position:sticky;bottom:6px;background:var(--panel,#fff);border:1px solid var(--border,#cbd5e1);box-shadow:0 8px 30px #0f172a20;border-radius:13px;padding:12px;z-index:3}
-        @media(max-width:640px){.fl-invest-grid,.fl-form{grid-template-columns:1fr}.fl-decision-sticky{bottom:4px}}
+        .fl-decision-sticky{position:relative;bottom:auto;background:var(--panel,#fff);border:1px solid var(--border,#cbd5e1);box-shadow:0 8px 30px #0f172a20;border-radius:13px;padding:12px;z-index:1}
+        @media(max-width:640px){.fl-invest-grid,.fl-form{grid-template-columns:1fr}.fl-decision-sticky{position:relative;bottom:auto}}
       `}</style>
 
       <header className="fl-head">
@@ -239,7 +239,7 @@ export default function FinancialLifecycle() {
           </label>
           <label className="fl-field">Case type
             <select value={form.case_type} onChange={event => setForm({ ...form, case_type: event.target.value })}>
-              {['CANCELLATION', 'RETURN', 'REFUND', 'EXCHANGE'].map(value => <option key={value}>{value}</option>)}
+              {['CANCELLATION', 'RETURN', 'REFUND', 'EXCHANGE'].map(value => <option key={value} value={value}>{value.replaceAll('_',' ')}</option>)}
             </select>
           </label>
           <Field label="Reason" value={form.reason} onChange={value => setForm({ ...form, reason: value })} />
@@ -327,7 +327,7 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
   const [detail, setDetail] = useState<AnyRecord | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [reasonCode, setReasonCode] = useState('DAMAGED');
+  const [reasonCode, setReasonCode] = useState('');
   const [otherReason, setOtherReason] = useState('');
   const [decisionNote, setDecisionNote] = useState('');
   const [evidenceType, setEvidenceType] = useState('product_photo');
@@ -354,6 +354,11 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
     try {
       const result = await api(`/api/v1/financial-lifecycle/cases/${selected.id}/detail`);
       setDetail(asObject(result));
+      if (['REFUND', 'RETURN'].includes(String(selected.case_type))) {
+        const approvalRows = asArray(await api('/api/v1/operations/financial/refund-approvals'));
+        const requestKey = `case-${String(selected.id).replaceAll('-', '')}`;
+        setApproval(approvalRows.find(item => item.request_key === requestKey) ?? null);
+      }
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : 'Case detail failed to load.');
     } finally {
@@ -466,13 +471,55 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
       const result = asObject(await api(`/api/v1/financial-lifecycle/cases/${selected.id}/refund-approval`, {
         method: 'POST', body: JSON.stringify({})
       }));
-      setApproval(result);
-      onMessage(`Linked PayPal approval request ${result.approval_id ?? ''} · ${result.status ?? ''}. Independent approval is still required.`);
+      setApproval({ ...result, id: result.approval_id ?? result.id });
+      onMessage(`Linked PayPal approval request ${result.approval_id ?? result.id ?? ''} · ${result.status ?? ''}. Independent approval is still required.`);
+      await refresh();
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : 'Refund approval request failed.');
     } finally {
       setBusy(false);
     }
+  }
+
+  async function reconcileRefund() {
+    if (!approval?.id) return;
+    setBusy(true);
+    try {
+      const result = asObject(await api(`/api/v1/operations/financial/refund-approvals/${approval.id}/reconcile`, { method: 'POST', body: JSON.stringify({}) }));
+      setApproval({ ...approval, ...result });
+      onMessage(`PayPal capture reconciliation: ${result.status ?? 'checked'}.`);
+      await refresh();
+    } catch (cause) {
+      onError(cause instanceof Error ? cause.message : 'PayPal reconciliation failed.');
+    } finally { setBusy(false); }
+  }
+
+  async function decideRefund(decision: 'APPROVE' | 'REJECT') {
+    if (!approval?.id) return;
+    setBusy(true);
+    try {
+      const result = asObject(await api(`/api/v1/operations/financial/refund-approvals/${approval.id}/decision`, {
+        method: 'POST', body: JSON.stringify({ decision, note: 'Reviewed customer complaint in MerchantOS.' })
+      }));
+      setApproval({ ...approval, ...result });
+      onMessage(`Independent refund decision: ${result.status ?? decision}. ${result.note ?? ''}`);
+      await refresh();
+    } catch (cause) {
+      onError(cause instanceof Error ? cause.message : 'Independent approval failed. The requester cannot approve their own request.');
+    } finally { setBusy(false); }
+  }
+
+  async function executeRefund() {
+    if (!approval?.id) return;
+    setBusy(true);
+    try {
+      const result = asObject(await api(`/api/v1/operations/financial/refund-approvals/${approval.id}/execute`, { method: 'POST', body: JSON.stringify({}) }));
+      setApproval({ ...approval, execution: result, status: result.status === 'SUCCEEDED' ? 'EXECUTED' : approval.status });
+      onMessage(`PayPal Sandbox refund: ${result.provider_status ?? result.status ?? 'UNKNOWN'} · Refund ID: ${result.provider_refund_id ?? 'not confirmed'}`);
+      await refresh();
+    } catch (cause) {
+      onError(cause instanceof Error ? cause.message : 'PayPal Sandbox refund execution failed.');
+    } finally { setBusy(false); }
   }
 
   async function runWorkflow() {
@@ -510,12 +557,12 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
   const net = recovered - Number(selected.requested_amount || 0) - Number(returnShipping)
     - Number(handling) - Number(costs.payment_fee || 0) - Number(writeOff);
   const canDecide = !busy && evidence.length > 0 && decisionNote.trim().length >= 5
-    && (reasonCode !== 'OTHER' || otherReason.trim().length >= 5);
+    && reasonCode.length > 0 && (reasonCode !== 'OTHER' || otherReason.trim().length >= 5);
 
   return (
     <section className="fl-card" style={{ marginTop: 14, display: 'grid', gap: 14 }}>
       <header className="fl-head">
-        <div><div className="fl-kicker">CASE INVESTIGATION · SANDBOX / DEMO DATA</div><h2>Case {caseData.id ?? selected.id}</h2><span className="fl-muted">{caseData.case_type ?? selected.case_type} · {caseData.status ?? selected.status} · Order {caseData.order_id ?? selected.order_id}</span></div>
+        <div><div className="fl-kicker">CASE INVESTIGATION · SANDBOX / DEMO DATA</div><h2>Case CASE-{String(caseData.id ?? selected.id).slice(0, 8).toUpperCase()}</h2><small className="fl-muted">Internal reference: {caseData.id ?? selected.id}</small><span className="fl-muted">{caseData.case_type ?? selected.case_type} · {caseData.status ?? selected.status} · Order {caseData.order_id ?? selected.order_id}</span></div>
         <span className="fl-muted">AI: computed rules · not an accuracy claim</span>
       </header>
 
@@ -568,6 +615,11 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
       </article>
 
       <article className="fl-invest-box">
+        <h4>Recorded inventory disposition</h4>
+        {asArray(detail.dispositions).length ? asArray(detail.dispositions).map((item, index) => <p key={String(item.id || index)}><b>{String(item.disposition).replaceAll('_',' ')}</b> · Qty {item.quantity} · Estimated recovery {order.currency ?? ''} {item.estimated_recovery} {item.realized_recovery != null ? `· Verified recovery ${order.currency ?? ''} ${item.realized_recovery}` : '· Actual recovery not verified'}<small className="fl-muted"> · {item.created_at ? new Date(item.created_at).toLocaleString() : 'Date unavailable'}</small></p>) : <p className="fl-muted">No disposition instruction recorded yet.</p>}
+      </article>
+
+      <article className="fl-invest-box">
         <h4>Render resolution workflow</h4>
         <p className="fl-muted">Advisory analysis only. It cannot approve or execute payments.</p>
         <button type="button" className="fl-btn" disabled={busy} onClick={() => void runWorkflow()}>Run resolution workflow</button>
@@ -580,7 +632,7 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
       <div className="fl-decision-sticky">
         <b>Human decision · no automatic money movement</b>
         <div className="fl-form" style={{ marginTop: 10 }}>
-          <label className="fl-field">Reason code<select value={reasonCode} onChange={event => setReasonCode(event.target.value)}>{['DAMAGED', 'WRONG_ITEM', 'LATE', 'POLICY_VIOLATION', 'SUSPECTED_ABUSE', 'OTHER'].map(value => <option key={value}>{value}</option>)}</select></label>
+          <label className="fl-field">Reason code<select value={reasonCode} onChange={event => setReasonCode(event.target.value)}><option value="">Choose a reason</option>{['DAMAGED', 'WRONG_ITEM', 'LATE', 'POLICY_VIOLATION', 'SUSPECTED_ABUSE', 'OTHER'].map(value => <option key={value}>{value}</option>)}</select></label>
           {reasonCode === 'OTHER' && <Field label="Other reason (required)" value={otherReason} onChange={setOtherReason} required />}
           <label className="fl-field fl-wide">Decision note<textarea value={decisionNote} onChange={event => setDecisionNote(event.target.value)} /></label>
         </div>
@@ -589,7 +641,20 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
           <button className="fl-btn" style={{ background: '#991b1b' }} disabled={!canDecide} onClick={() => void decide('REJECT')}>Reject</button>
         </div>
         <small className="fl-muted">Approval is a human proposal only. Refunds still require separate reconciliation, independent approver and PayPal Sandbox execution.</small>
-        {['RETURN', 'REFUND'].includes(String(selected.case_type)) && caseData.status === 'UNDER_REVIEW' && <div style={{ marginTop: 10 }}><button type="button" className="fl-btn" disabled={busy} onClick={() => void requestRefundApproval()}>Create linked PayPal approval request</button>{approval && <p className="fl-muted">Approval {approval.approval_id} · {approval.status}</p>}</div>}
+        {['RETURN', 'REFUND'].includes(String(selected.case_type)) && <div className="fl-invest-box" style={{ marginTop: 12 }}>
+          <h4>PayPal Sandbox refund lifecycle</h4>
+          {!approval?.id && <button type="button" className="fl-btn" disabled={busy || caseData.status !== 'UNDER_REVIEW'} onClick={() => void requestRefundApproval()}>Create linked refund request</button>}
+          {approval?.id && <>
+            <p className="fl-muted">Request {String(approval.id).slice(0, 8)} · {approval.status} · {approval.currency ?? detail.order?.currency ?? ''} {approval.amount ?? selected.requested_amount}</p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {approval.status === 'PENDING_RECONCILIATION' && <button type="button" className="fl-btn" disabled={busy} onClick={() => void reconcileRefund()}>Reconcile with PayPal</button>}
+              {approval.status === 'PENDING_APPROVAL' && <><button type="button" className="fl-btn" disabled={busy} onClick={() => void decideRefund('APPROVE')}>Independent OWNER/ADMIN approve</button><button type="button" className="fl-btn" style={{ background: '#991b1b' }} disabled={busy} onClick={() => void decideRefund('REJECT')}>Reject refund</button></>}
+              {approval.status === 'APPROVED' && <button type="button" className="fl-btn" disabled={busy} onClick={() => void executeRefund()}>Execute PayPal Sandbox refund</button>}
+            </div>
+            {approval.execution && <p><b>Provider:</b> PAYPAL SANDBOX · <b>Status:</b> {approval.execution.provider_status ?? approval.execution.status} · <b>Refund ID:</b> {approval.execution.provider_refund_id ?? 'Not confirmed'}</p>}
+            <small className="fl-muted">Maker/checker separation applies: the person who requested the refund cannot approve it. Execution is restricted to the recorded approver. Ambiguous provider outcomes are never retried automatically.</small>
+          </>}
+        </div>}
       </div>
     </section>
   );
