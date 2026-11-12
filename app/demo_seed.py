@@ -21,20 +21,11 @@ from .financial_lifecycle import (
 
 
 def _id(tenant_id: str, kind: str, key: str) -> str:
-    return f"demo-{uuid5(NAMESPACE_URL, f'merchantos:{tenant_id}:{kind}:{key}').hex}"
+    return uuid5(NAMESPACE_URL, f'merchantos:{tenant_id}:{kind}:{key}').hex
 
 
 def seed_tenant_demo_data(session, tenant_id: str, actor_user_id: str) -> dict:
     """Insert a coherent 30-order story once per tenant; safe to call repeatedly."""
-    # Demo IDs intentionally use a readable "demo-" prefix plus a UUID5 hex digest
-    # (37 characters). Widen legacy 36-character financial lifecycle columns before
-    # inserting. ALTER TYPE is safe and idempotent for existing PostgreSQL data.
-    from sqlalchemy import text
-    session.execute(text("ALTER TABLE financial_resolution_cases ALTER COLUMN id TYPE VARCHAR(64)"))
-    session.execute(text("ALTER TABLE financial_order_costs ALTER COLUMN id TYPE VARCHAR(64)"))
-    session.execute(text("ALTER TABLE financial_lifecycle_events ALTER COLUMN id TYPE VARCHAR(64)"))
-    session.execute(text("ALTER TABLE financial_lifecycle_events ALTER COLUMN case_id TYPE VARCHAR(64)"))
-
     now = datetime.now(timezone.utc)
     customers = [
         ("CUST-001", "Aarav Mehta"), ("CUST-002", "Diya Nair"),
