@@ -258,7 +258,7 @@ export function Dashboard(){
         `${pendingRefunds} refund records are not marked provider-completed; confirm each with PayPal.`
       ];
       const recommendations=[
-        lowRated.length?'Open each 1–2 star review, verify the linked order and investigate the customer's exact complaint.':'No 1–2 star reviews were found in the records returned.',
+        lowRated.length?"Open each 1–2 star review, verify the linked order and investigate the customer’s exact complaint.":'No 1–2 star reviews were found in the records returned.',
         top.length?`Check the most frequent category (${String(top[0][0])}) against order and evidence records; frequency alone does not prove root cause.`:'Collect categorized feedback before drawing conclusions.',
         openDisputes?'Prioritize open disputes and attach order-specific evidence.':'Continue monitoring disputes.',
         pendingRefunds?'Reconcile pending refunds with PayPal and require independent approval before execution.':'Continue checking provider statuses.'
