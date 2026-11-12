@@ -83,7 +83,7 @@ export default function FinancialLifecycle() {
         api('/api/v1/financial-lifecycle/intelligence'),
         api('/api/v1/financial-lifecycle/reconciliation'),
         api('/api/v1/domain/orders'),
-        api('/api/v1/financial-lifecycle/complaint-clusters?threshold=0.28')
+        api('/api/v1/financial-lifecycle/complaint-clusters?threshold=0.15')
       ]);
       setOverview(asObject(o));
       setCases(asArray(c));
@@ -136,7 +136,7 @@ export default function FinancialLifecycle() {
     try {
       const result = asObject(await api(
         '/api/v1/financial-lifecycle/complaint-clusters/run',
-        { method: 'POST', body: JSON.stringify({ threshold: 0.28 }) }
+        { method: 'POST', body: JSON.stringify({ threshold: 0.15 }) }
       ));
       setClusters(result);
       setMessage(`Clustered ${result.review_count ?? 0} reviews using ${result.method ?? 'reported method'}.`);
@@ -239,7 +239,7 @@ export default function FinancialLifecycle() {
           </label>
           <label className="fl-field">Case type
             <select value={form.case_type} onChange={event => setForm({ ...form, case_type: event.target.value })}>
-              {['CANCELLATION', 'RETURN', 'REFUND', 'EXCHANGE'].map(value => <option key={value}>{value}</option>)}
+              {['CANCELLATION', 'RETURN', 'REFUND', 'EXCHANGE'].map(value => <option key={value} value={value}>{value.replaceAll('_',' ')}</option>)}
             </select>
           </label>
           <Field label="Reason" value={form.reason} onChange={value => setForm({ ...form, reason: value })} />
@@ -327,7 +327,7 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
   const [detail, setDetail] = useState<AnyRecord | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [reasonCode, setReasonCode] = useState('DAMAGED');
+  const [reasonCode, setReasonCode] = useState('');
   const [otherReason, setOtherReason] = useState('');
   const [decisionNote, setDecisionNote] = useState('');
   const [evidenceType, setEvidenceType] = useState('product_photo');
@@ -510,7 +510,7 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
   const net = recovered - Number(selected.requested_amount || 0) - Number(returnShipping)
     - Number(handling) - Number(costs.payment_fee || 0) - Number(writeOff);
   const canDecide = !busy && evidence.length > 0 && decisionNote.trim().length >= 5
-    && (reasonCode !== 'OTHER' || otherReason.trim().length >= 5);
+    && reasonCode.length > 0 && (reasonCode !== 'OTHER' || otherReason.trim().length >= 5);
 
   return (
     <section className="fl-card" style={{ marginTop: 14, display: 'grid', gap: 14 }}>
@@ -580,7 +580,7 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
       <div className="fl-decision-sticky">
         <b>Human decision · no automatic money movement</b>
         <div className="fl-form" style={{ marginTop: 10 }}>
-          <label className="fl-field">Reason code<select value={reasonCode} onChange={event => setReasonCode(event.target.value)}>{['DAMAGED', 'WRONG_ITEM', 'LATE', 'POLICY_VIOLATION', 'SUSPECTED_ABUSE', 'OTHER'].map(value => <option key={value}>{value}</option>)}</select></label>
+          <label className="fl-field">Reason code<select value={reasonCode} onChange={event => setReasonCode(event.target.value)}><option value="">Choose a reason</option>{['DAMAGED', 'WRONG_ITEM', 'LATE', 'POLICY_VIOLATION', 'SUSPECTED_ABUSE', 'OTHER'].map(value => <option key={value}>{value}</option>)}</select></label>
           {reasonCode === 'OTHER' && <Field label="Other reason (required)" value={otherReason} onChange={setOtherReason} required />}
           <label className="fl-field fl-wide">Decision note<textarea value={decisionNote} onChange={event => setDecisionNote(event.target.value)} /></label>
         </div>
