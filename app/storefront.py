@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal, InvalidOperation
 import requests
-from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import String, DateTime, JSON, ForeignKey, UniqueConstraint, select
 from sqlalchemy.orm import Mapped, mapped_column
@@ -99,13 +99,13 @@ class CheckoutBody(BaseModel):
     customer_email:str=Field(min_length=3,max_length=254)
 
 @router.post("/api/store/{slug}/checkout")
-def checkout(slug:str,body:CheckoutBody):
+def checkout(slug:str,body:CheckoutBody,request:Request):
     with store_scope(slug) as (tenant_id,catalog):
         product=next((x for x in catalog.products if x["id"]==body.product_id),None)
         if not product: raise HTTPException(404,"Product not found.")
         c=_connection(tenant_id); bearer=_oauth(c["client_id"],c["client_secret"],"sandbox")
         order_id="MOS-"+uuid.uuid4().hex[:18].upper(); customer_token=secrets.token_urlsafe(32)
-        public_url=os.getenv("PUBLIC_APP_URL","https://merchantos-web.vercel.app")
+        public_url=str(request.base_url).rstrip("/")
         paypal=provider("POST",_base("sandbox")+"/v2/checkout/orders",bearer,{
             "intent":"CAPTURE","purchase_units":[{"reference_id":order_id,"custom_id":order_id,"description":product["name"],
                 "amount":{"currency_code":product["currency"],"value":product["amount"]}}],
