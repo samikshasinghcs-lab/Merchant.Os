@@ -183,10 +183,12 @@ def tenant_customers(p=Depends(principal)):
                 'latest_review': None,
             })
             row['referenced_orders'] += 1
+        order_customer = {order.id: (order.customer_id or 'UNKNOWN') for order in orders}
+        order_customer_name = {order.id: (order.customer_name or 'Unknown') for order in orders}
         for review in reviews:
-            key = review.customer_id or 'UNKNOWN'
+            key = review.customer_id or order_customer.get(review.order_id) or 'UNKNOWN'
             row = groups.setdefault(key, {
-                'customer_id': key, 'customer_name': review.customer_name or 'Unknown',
+                'customer_id': key, 'customer_name': review.customer_name or order_customer_name.get(review.order_id) or 'Unknown',
                 'referenced_orders': 0, 'review_count': 0, 'ratings': [],
                 'latest_review': None,
             })
