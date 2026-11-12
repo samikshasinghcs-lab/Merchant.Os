@@ -1,0 +1,67 @@
+name: Install MerchantOS ZIP
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Extract and replace files
+        run: |
+          python - <<'PY'
+          import zipfile
+          from pathlib import Path, PurePosixPath
+
+          archive = Path("MerchantOS_AI_Repair_PayPal_MCP.zip")
+          if not archive.exists():
+              raise SystemExit("ZIP file not found!")
+
+          with zipfile.ZipFile(archive) as z:
+              for item in z.infolist():
+                  p = PurePosixPath(item.filename)
+
+                  if p.is_absolute() or ".." in p.parts:
+                      raise SystemExit("Unsafe ZIP path rejected")
+
+                  if ".git" in p.parts or ".env" in p.parts:
+                      continue
+
+                  # Do not install the paid Codex workflow.
+                  if item.filename.startswith(".github/workflows/ai-repair"):
+                      continue
+                  if item.filename.startswith(".github/codex/"):
+                      continue
+
+                  if item.is_dir():
+                      continue
+
+                  target = Path(*p.parts)
+                  target.parent.mkdir(parents=True, exist_ok=True)
+
+                  with z.open(item) as source:
+                      target.write_bytes(source.read())
+
+          print("ZIP files extracted successfully.")
+          PY
+
+      - name: Commit replacements to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Install MerchantOS repair and PayPal MCP files"
+            git push origin main
+          fi
