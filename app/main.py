@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime,timezone,date
 from pathlib import Path
 from fastapi import FastAPI,HTTPException,UploadFile,File
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from .db import init,seed,db
@@ -37,6 +38,21 @@ async def lifespan(app):
 
 _PROCESS_STARTED_AT = time.time()
 app=FastAPI(title="MerchantOS",version="1.0.0",lifespan=lifespan)
+
+# Allow the MerchantOS Vercel frontend to call the API from browsers.
+# Extra origins can be supplied through CORS_ORIGINS (comma-separated).
+_configured_origins = [x.strip().rstrip("/") for x in os.getenv("CORS_ORIGINS", "").split(",") if x.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_configured_origins + [
+        "https://merchantos-web-vexora-b9e7.vercel.app",
+        "https://merchantos-694snqkz9-vexora-b9e7.vercel.app",
+    ],
+    allow_origin_regex=r"https://merchantos-[a-z0-9-]+-vexora-b9e7\\.vercel\\.app",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(intelligence_router)
 from .financial_lifecycle import router as financial_lifecycle_router
 app.include_router(financial_lifecycle_router)
