@@ -5,14 +5,14 @@ from contextlib import contextmanager
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal, InvalidOperation
 import requests
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Form, File, UploadFile, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import String, DateTime, JSON, ForeignKey, UniqueConstraint, select
 from sqlalchemy.orm import Mapped, mapped_column
 from .orm_base import Base
 from .tenant_db import tenant_session
-from .domain_models import TenantOrder, TenantReview, TenantAuditEvent
-from .financial_lifecycle import ResolutionCase
+from .domain_models import TenantOrder, TenantReview, TenantAuditEvent, TenantEvidence
+from .financial_lifecycle import ResolutionCase, FinancialEvent
 from . import auth as identity
 from .paypal_tenant import _connection, _oauth, _base
 
@@ -99,13 +99,13 @@ class CheckoutBody(BaseModel):
     customer_email:str=Field(min_length=3,max_length=254)
 
 @router.post("/api/store/{slug}/checkout")
-def checkout(slug:str,body:CheckoutBody):
+def checkout(slug:str,body:CheckoutBody,request:Request):
     with store_scope(slug) as (tenant_id,catalog):
         product=next((x for x in catalog.products if x["id"]==body.product_id),None)
         if not product: raise HTTPException(404,"Product not found.")
         c=_connection(tenant_id); bearer=_oauth(c["client_id"],c["client_secret"],"sandbox")
         order_id="MOS-"+uuid.uuid4().hex[:18].upper(); customer_token=secrets.token_urlsafe(32)
-        public_url=os.getenv("PUBLIC_APP_URL","https://merchantos-web.vercel.app")
+        public_url=str(request.base_url).rstrip("/")
         paypal=provider("POST",_base("sandbox")+"/v2/checkout/orders",bearer,{
             "intent":"CAPTURE","purchase_units":[{"reference_id":order_id,"custom_id":order_id,"description":product["name"],
                 "amount":{"currency_code":product["currency"],"value":product["amount"]}}],
@@ -161,6 +161,77 @@ class ComplaintBody(BaseModel):
     category:str=Field(min_length=2,max_length=60)
     message:str=Field(min_length=10,max_length=2000)
 
+
+@router.post("/api/store/order/{order_id}/complaints/{case_id}/evidence")
+async def upload_customer_complaint_evidence(
+    order_id: str, case_id: str, access: str,
+    evidence_type: str = Form(...), description: str = Form(...),
+    file: UploadFile = File(...)
+):
+    """Customer-token protected evidence upload linked to this exact order and complaint case."""
+    tenant_id = grant(order_id, access)
+    allowed = {"product_photo", "courier_receipt", "customer_screenshot", "order_document", "other"}
+    if evidence_type not in allowed:
+        raise HTTPException(400, "Unsupported evidence type.")
+    description = description.strip()
+    if not 5 <= len(description) <= 1000:
+        raise HTTPException(400, "Description must contain 5–1000 characters.")
+    mime = (file.content_type or "").lower()
+    suffixes = {"image/jpeg": ".jpg", "image/png": ".png", "application/pdf": ".pdf"}
+    if mime not in suffixes:
+        raise HTTPException(400, "Upload a JPEG, PNG or PDF file.")
+    data = await file.read(5 * 1024 * 1024 + 1)
+    if not data or len(data) > 5 * 1024 * 1024:
+        raise HTTPException(400, "Evidence file must be between 1 byte and 5 MB.")
+    valid = ((mime == "image/jpeg" and data.startswith(b"\\xff\\xd8\\xff")) or
+             (mime == "image/png" and data.startswith(b"\\x89PNG\\r\\n\\x1a\\n")) or
+             (mime == "application/pdf" and data.startswith(b"%PDF-")))
+    if not valid:
+        raise HTTPException(400, "File signature does not match the selected file type.")
+    digest_value = hashlib.sha256(data).hexdigest()
+    from pathlib import Path
+    from .financial_lifecycle import FinancialEvent
+    root = Path(os.getenv("MERCHANTOS_EVIDENCE_DIR", os.getenv("EVIDENCE_UPLOAD_DIR", "/var/data/merchantos-evidence"))).resolve()
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        os.chmod(root, 0o700)
+    except OSError:
+        raise HTTPException(503, "Private evidence storage is unavailable; configure the persistent evidence disk.")
+    storage_name = uuid.uuid4().hex + suffixes[mime]
+    storage_path = root / storage_name
+    try:
+        storage_path.write_bytes(data)
+        os.chmod(storage_path, 0o600)
+    except OSError:
+        raise HTTPException(503, "Evidence could not be stored securely.")
+    try:
+        with tenant_session(tenant_id) as session:
+            order = session.scalar(select(TenantOrder).where(TenantOrder.id == order_id, TenantOrder.tenant_id == tenant_id))
+            case = session.scalar(select(ResolutionCase).where(ResolutionCase.id == case_id, ResolutionCase.tenant_id == tenant_id, ResolutionCase.order_id == order_id))
+            if not order or not case:
+                raise HTTPException(404, "Complaint or order not found.")
+            if order.payment_status != "COMPLETED":
+                raise HTTPException(409, "Evidence intake is available after payment capture.")
+            duplicate = session.scalar(select(TenantEvidence).where(TenantEvidence.tenant_id == tenant_id, TenantEvidence.sha256 == digest_value))
+            if duplicate:
+                raise HTTPException(409, "This file is already registered in the merchant evidence vault.")
+            evidence_id = "EVD-" + uuid.uuid4().hex[:16].upper()
+            session.add(TenantEvidence(id=evidence_id, tenant_id=tenant_id, order_id=order_id,
+                evidence_type=evidence_type.upper(), description=description, storage_key=storage_name,
+                sha256=digest_value, integrity_status="SHA256_VERIFIED"))
+            session.add(FinancialEvent(id=str(uuid.uuid4()), tenant_id=tenant_id, case_id=case_id,
+                event_type="EVIDENCE_UPLOADED", actor_id="customer-portal",
+                payload={"evidence_id": evidence_id, "evidence_type": evidence_type.upper(), "sha256": digest_value}))
+            session.add(TenantAuditEvent(id=str(uuid.uuid4()), tenant_id=tenant_id, actor_user_id=None,
+                event="CUSTOMER_COMPLAINT_EVIDENCE_UPLOADED", entity_type="FINANCIAL_CASE", entity_id=case_id,
+                detail={"evidence_id": evidence_id, "order_id": order_id, "sha256": digest_value}))
+    except Exception:
+        try: storage_path.unlink(missing_ok=True)
+        except OSError: pass
+        raise
+    return {"evidence_id": evidence_id, "case_id": case_id, "integrity_status": "SHA256_VERIFIED",
+            "message": "Evidence securely registered and linked to this complaint."}
+
 @router.post("/api/store/order/{order_id}/complaints")
 def complaint(order_id:str,access:str,body:ComplaintBody):
     tenant_id=grant(order_id,access)
@@ -170,6 +241,6 @@ def complaint(order_id:str,access:str,body:ComplaintBody):
         if o.payment_status!="COMPLETED": raise HTTPException(409,"Complaint intake opens after payment capture is completed.")
         cid="CMP-"+uuid.uuid4().hex[:12].upper(); case_id=str(uuid.uuid4())
         s.add(TenantReview(id=cid,tenant_id=tenant_id,customer_id=o.customer_id,customer_name=o.customer_name,order_id=o.id,product=o.product,rating=None,text=body.message.strip(),category=body.category.upper(),severity="MEDIUM"))
-        s.add(ResolutionCase(id=case_id,tenant_id=tenant_id,order_id=o.id,case_type="REFUND",status="OPEN",reason=body.message.strip(),requested_amount=Decimal(str(o.amount)),estimated_loss=Decimal(str(o.amount)),recoverable_inventory_estimate=Decimal("0"),created_by="customer-portal"))
-        s.add(TenantAuditEvent(id=str(uuid.uuid4()),tenant_id=tenant_id,actor_user_id=None,event="CUSTOMER_COMPLAINT_SUBMITTED",entity_type="FINANCIAL_CASE",entity_id=case_id,detail={"complaint_id":cid,"order_id":o.id,"category":body.category.upper()}))
-        return {"complaint_id":cid,"case_id":case_id,"status":"OPEN","message":"Complaint received. The merchant can review it in MerchantOS."}
+        s.add(ResolutionCase(id=case_id,tenant_id=tenant_id,order_id=o.id,case_type="REFUND",status="OPEN",reason=("[REFUND_DESTINATION: ORIGINAL_PAYMENT_METHOD] " if body.refund_to_original_payment_method else "[REFUND_DESTINATION: CUSTOMER_REVIEW_REQUIRED] ")+body.message.strip(),requested_amount=Decimal(str(o.amount)),estimated_loss=Decimal(str(o.amount)),recoverable_inventory_estimate=Decimal("0"),created_by="customer-portal"))
+        s.add(TenantAuditEvent(id=str(uuid.uuid4()),tenant_id=tenant_id,actor_user_id=None,event="CUSTOMER_COMPLAINT_SUBMITTED",entity_type="FINANCIAL_CASE",entity_id=case_id,detail={"complaint_id":cid,"order_id":o.id,"category":body.category.upper(),"refund_destination":"ORIGINAL_PAYMENT_METHOD" if body.refund_to_original_payment_method else "CUSTOMER_REVIEW_REQUIRED","capture_id":o.capture_id,"requested_amount":str(o.amount),"currency":o.currency}))
+        return {"complaint_id":cid,"case_id":case_id,"status":"OPEN","refund_destination":"ORIGINAL_PAYMENT_METHOD" if body.refund_to_original_payment_method else "CUSTOMER_REVIEW_REQUIRED","refund_request_status":"MERCHANT_REVIEW_REQUIRED","capture_id":o.capture_id,"requested_amount":str(o.amount),"currency":o.currency,"message":"Complaint received. The merchant can review the refund request in MerchantOS. Any refund must be independently approved and executed through PayPal."}

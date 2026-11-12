@@ -187,3 +187,10 @@ pre { background: #292522; color: #eee5d8; border: 1px solid #494039; border-rad
 @media (prefers-reduced-motion: reduce) {
   .cta-primary, .nav-item, .secondary, .primary { transition: none !important; }
         }
+
+/* Demo-first navigation descriptions */
+.nav-item-copy{display:flex;flex-direction:column;gap:3px;min-width:0;line-height:1.2}
+.nav-item-copy b{font-size:12px;font-weight:650}
+.nav-item-copy small{font-size:9px;font-weight:400;line-height:1.35;color:#a99f95;white-space:normal;max-width:190px}
+.nav-group-label{margin-top:20px;margin-bottom:8px}
+@media(max-width:900px){.nav-item-copy{display:none}}
