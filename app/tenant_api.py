@@ -32,7 +32,7 @@ def _tenant_llm_config():
     enabled = os.getenv('MERCHANTOS_AI_ENABLED', 'false').lower() == 'true'
     key = os.getenv('OPENAI_API_KEY') or os.getenv('OPENROUTER_API_KEY')
     base = os.getenv('OPENAI_BASE_URL', 'https://openrouter.ai/api/v1').rstrip('/')
-    model = os.getenv('MERCHANTOS_LLM_MODEL', '').strip()
+    model = os.getenv('MERCHANTOS_LLM_MODEL', 'openai/gpt-4o-mini').strip()
     return enabled, key, base, model
 
 
