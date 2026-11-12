@@ -8,7 +8,7 @@ import ExecutionTimeline from './pages/ExecutionTimeline';
 import FinancialLifecycle from './pages/FinancialLifecycle';
 import Proof from './pages/Proof';
 
-const nav=[['Overview','/',LayoutDashboard],['Customer intelligence','/customers',Users],['Review lab','/reviews',Search],['Transactions','/transactions',WalletCards],['Execution timeline','/execution',Workflow],['Refund investigations','/refunds',ArrowDownLeft],['Dispute center','/disputes',AlertTriangle],['Agreements','/agreements',FileText],['Milestones','/milestones',BriefcaseBusiness],['Evidence vault','/evidence',FileCheck2],['Root-cause intelligence','/root-cause',ChartNoAxesCombined],['Trust & audit','/audit',ShieldCheck]] as const;
+const nav=[['Overview','/',LayoutDashboard],['Customer intelligence','/customers',Users],['Review lab','/reviews',Search],['Transactions','/transactions',WalletCards],['Financial operations','/financial-operations',Activity],['Execution timeline','/execution',Workflow],['Refund investigations','/refunds',ArrowDownLeft],['Dispute center','/disputes',AlertTriangle],['Agreements','/agreements',FileText],['Milestones','/milestones',BriefcaseBusiness],['Evidence vault','/evidence',FileCheck2],['Root-cause intelligence','/root-cause',ChartNoAxesCombined],['Trust & audit','/audit',ShieldCheck]] as const;
 
 function ProductPreview(){
   const [tab,setTab]=useState(0);
