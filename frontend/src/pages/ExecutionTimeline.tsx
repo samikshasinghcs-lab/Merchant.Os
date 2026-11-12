@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 
-type AuditRow = { id: number | string; event: string; actor: string; entity: string; detail: string; created_at: string };
+type AuditRow = { id: number | string; event?: string; action?: string; actor?: string; actor_email?: string; entity?: string; entity_type?: string; entity_id?: string; detail?: unknown; created_at?: string; timestamp?: string };
 
 /** Lightweight native timeline: avoids a licensed/private scheduler dependency. */
 export default function ExecutionTimeline(){
@@ -10,7 +10,7 @@ export default function ExecutionTimeline(){
   const [busy,setBusy]=useState(true);
   const load=()=>{
     setBusy(true);setError('');
-    api<AuditRow[]>('/api/audit')
+    api<AuditRow[]>('/api/v1/domain/audit')
       .then(data=>setRows(Array.isArray(data)?data:[]))
       .catch((e:any)=>setError(e.message||'Could not load audit events'))
       .finally(()=>setBusy(false));
@@ -23,12 +23,13 @@ export default function ExecutionTimeline(){
     {!busy&&!rows.length&&!error&&<div className="panel"><p className="muted">No audit events have been recorded yet.</p></div>}
     <div className="panel execution-timeline-panel"><div className="panel-head"><h3>MerchantOS operational event stream</h3><span className="muted">{rows.length} audit events · read-only</span></div>
       <ol className="execution-timeline">{rows.map((row)=>{
-        const failed=(row.event||'').includes('FAILED');
-        const completed=(row.event||'').includes('COMPLETED');
+        const event = row.event || row.action || 'OPERATIONAL_EVENT';
+        const failed=event.includes('FAILED');
+        const completed=event.includes('COMPLETED');
         return <li key={String(row.id)} className={failed?'is-failed':completed?'is-completed':''}>
           <span className="execution-timeline-dot" aria-hidden="true"/>
-          <div className="execution-timeline-content"><div className="execution-timeline-top"><b>{(row.event||'EVENT').replaceAll('_',' ')}</b><time dateTime={row.created_at}>{row.created_at?new Date(row.created_at).toLocaleString():'Time unavailable'}</time></div>
-            <p>{row.entity||'system'} · {row.actor||'system'}</p>{row.detail&&<small>{row.detail}</small>}
+          <div className="execution-timeline-content"><div className="execution-timeline-top"><b>{event.replaceAll('_',' ')}</b><time dateTime={row.created_at}>{(row.created_at||row.timestamp)?new Date(String(row.created_at||row.timestamp)).toLocaleString():'Time unavailable'}</time></div>
+            <p>{row.entity_type||row.entity||'system'} {row.entity_id||''} · {row.actor||row.actor_email||'system'}</p>{row.detail&&<small>{typeof row.detail==='string'?row.detail:JSON.stringify(row.detail)}</small>}
           </div>
         </li>;
       })}</ol>
