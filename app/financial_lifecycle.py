@@ -57,7 +57,7 @@ def audit(s,p,event,etype,eid,detail):
 class OrderCost(Base):
     __tablename__="financial_order_costs"
     __table_args__=(UniqueConstraint("tenant_id","order_id",name="uq_fin_cost_tenant_order"),Index("ix_fin_cost_tenant","tenant_id"))
-    id:Mapped[str]=mapped_column(String(64),primary_key=True)
+    id:Mapped[str]=mapped_column(String(36),primary_key=True)
     tenant_id:Mapped[str]=mapped_column(String(36),nullable=False,index=True)
     order_id:Mapped[str]=mapped_column(String(100),nullable=False,index=True)
     cogs:Mapped[Decimal]=mapped_column(Numeric(14,2),default=0,nullable=False)
@@ -71,7 +71,7 @@ class OrderCost(Base):
 class ResolutionCase(Base):
     __tablename__="financial_resolution_cases"
     __table_args__=(Index("ix_fin_case_tenant_status","tenant_id","status"),Index("ix_fin_case_cluster","tenant_id","complaint_cluster_id"))
-    id:Mapped[str]=mapped_column(String(64),primary_key=True)
+    id:Mapped[str]=mapped_column(String(36),primary_key=True)
     tenant_id:Mapped[str]=mapped_column(String(36),nullable=False,index=True)
     order_id:Mapped[str]=mapped_column(String(100),nullable=False,index=True)
     case_type:Mapped[str]=mapped_column(String(24),nullable=False)
@@ -123,9 +123,9 @@ class JournalEntry(Base):
 class FinancialEvent(Base):
     __tablename__="financial_lifecycle_events"
     __table_args__=(Index("ix_fin_event_tenant_case","tenant_id","case_id","created_at"),)
-    id:Mapped[str]=mapped_column(String(64),primary_key=True)
+    id:Mapped[str]=mapped_column(String(36),primary_key=True)
     tenant_id:Mapped[str]=mapped_column(String(36),nullable=False,index=True)
-    case_id:Mapped[str]=mapped_column(String(64),nullable=False,index=True)
+    case_id:Mapped[str]=mapped_column(String(36),nullable=False,index=True)
     event_type:Mapped[str]=mapped_column(String(60),nullable=False)
     actor_id:Mapped[str]=mapped_column(String(36),nullable=False)
     payload:Mapped[dict]=mapped_column(JSON,default=dict,nullable=False)
