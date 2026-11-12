@@ -588,6 +588,7 @@ export function Customers(){
     </>
   );
 })()}
+  </>;
 }
 
 /* REVIEWS */
