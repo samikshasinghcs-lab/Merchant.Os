@@ -519,8 +519,8 @@ async def tenant_upload_evidence(
         raise HTTPException(400, 'Description must contain 5–1,000 characters')
     mime = (file.content_type or '').lower()
     signatures = {
-        'image/jpeg': b'\\xff\\xd8\\xff',
-        'image/png': b'\\x89PNG\r\n\x1a\\n',
+        'image/jpeg': bytes.fromhex('ffd8ff'),
+        'image/png': bytes.fromhex('89504e470d0a1a0a'),
         'application/pdf': b'%PDF-',
     }
     if mime not in signatures:
@@ -537,7 +537,7 @@ async def tenant_upload_evidence(
         os.chmod(root, 0o700)
     except OSError:
         raise HTTPException(503, 'Private evidence storage is unavailable; configure a persistent private disk')
-    suffix = {'image/jpeg': '.jpg', 'image/png': '.png', 'application/pdf': '.pdf'}[mime]
+        'image/jpeg': bytes.fromhex('ffd8ff'),
     storage_name = uuid.uuid4().hex + suffix
     target = (root / storage_name).resolve()
     if root not in target.parents:
