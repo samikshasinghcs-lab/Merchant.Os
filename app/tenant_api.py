@@ -537,7 +537,7 @@ async def tenant_upload_evidence(
         os.chmod(root, 0o700)
     except OSError:
         raise HTTPException(503, 'Private evidence storage is unavailable; configure a persistent private disk')
-        'image/jpeg': bytes.fromhex('ffd8ff'),
+    suffix = {'image/jpeg': '.jpg', 'image/png': '.png', 'application/pdf': '.pdf'}[mime]
     storage_name = uuid.uuid4().hex + suffix
     target = (root / storage_name).resolve()
     if root not in target.parents:
