@@ -212,11 +212,28 @@ export function Login({onLogin}:{onLogin:(u:any)=>void}) {
 /* COMMAND CENTER */
 
 export function Dashboard(){
-  const {data,error,busy,refresh}=useLoad<Any>('/api/dashboard');
-  const {data:ins}=useLoad<Any>('/api/insights');
-  const {data:root}=useLoad<Any>('/api/root-cause');
+  const {data,error,busy,refresh}=useLoad<Any>('/api/v1/domain/dashboard');
+  const {data:root}=useLoad<Any>('/api/v1/domain/root-cause');
+  const [seeding,setSeeding]=useState(false);
+  const [seedMessage,setSeedMessage]=useState('');
 
-  const findings=root?.findings||ins?.findings||[];
+  const findings=root?.findings||[];
+
+  async function loadIllustrativeData(){
+    setSeeding(true);
+    setSeedMessage('');
+    try{
+      const result=await api<Any>('/api/v1/domain/demo-seed',{method:'POST'});
+      setSeedMessage(result.status==='ALREADY_PRESENT'
+        ? 'Illustrative dataset is already present. No duplicate records were created.'
+        : 'Illustrative dataset loaded. 30 linked orders; no PayPal transactions or provider confirmations were created.');
+      refresh();
+    }catch(e:any){
+      setSeedMessage(e.message||'Could not load illustrative data.');
+    }finally{
+      setSeeding(false);
+    }
+  }
 
   function formatFinding(item:any){
     let details=item.summary||item.description||item.detail||{};
@@ -257,13 +274,19 @@ export function Dashboard(){
       title="Command center"
       sub="A live view of customer experience, financial operations and emerging business issues."
       action={
-        <button className="secondary" onClick={refresh}>
-          <RefreshCw size={15}/> Refresh
-        </button>
+        <div className="heading-actions">
+          <button className="secondary" onClick={refresh}>
+            <RefreshCw size={15}/> Refresh
+          </button>
+          <button className="primary" onClick={loadIllustrativeData} disabled={seeding}>
+            {seeding?'Loading…':'Load illustrative demo data'}
+          </button>
+        </div>
       }
     />
 
     {error&&<div className="error">{error}</div>}
+    {seedMessage&&<div className="notice">{seedMessage}</div>}
 
     <div className="metric-grid">
       <Metric
@@ -359,7 +382,7 @@ export function Dashboard(){
 /* CUSTOMERS */
 
 export function Customers(){
-  const {data,error,busy}=useLoad<any[]>('/api/customers');
+  const {data,error,busy}=useLoad<any[]>('/api/v1/domain/customers');
   const [q,setQ]=useState('');
   const [detail,setDetail]=useState<any>(null);
 
@@ -369,7 +392,7 @@ export function Customers(){
       ...x,
       customer_id:<button className="table-link" onClick={async()=>{
         try{
-          setDetail(await api(`/api/customers/${encodeURIComponent(x.customer_id)}`));
+          setDetail(await api(`/api/v1/domain/customers/${encodeURIComponent(x.customer_id)}`));
         }catch(e:any){
           setDetail({error:e.message});
         }
@@ -593,7 +616,7 @@ export function Customers(){
 /* REVIEWS */
 
 export function Reviews(){
-  const {data,error,refresh}=useLoad<any[]>('/api/reviews/semantic-clusters');
+  const {data,error,refresh}=useLoad<any[]>('/api/v1/domain/review-clusters');
   const [file,setFile]=useState<File|null>(null);
   const [msg,setMsg]=useState('');
 
@@ -613,7 +636,7 @@ export function Reviews(){
 
   async function analyze(){
     try{
-      const r=await api<any>('/api/reviews/semantic-analysis',{method:'POST'});
+      const r=await api<any>('/api/v1/financial-lifecycle/complaint-clusters/run',{method:'POST'});
       setMsg(`Analysis complete using ${r.method||'configured pipeline'}.`);
       refresh();
     }catch(e:any){
@@ -651,7 +674,7 @@ export function Reviews(){
 /* TRANSACTION INVESTIGATION */
 
 export function Transactions(){
-  const {data,error,busy}=useLoad<any[]>('/api/transactions');
+  const {data,error,busy}=useLoad<any[]>('/api/v1/domain/transactions');
   const [id,setId]=useState('');
   const [record,setRecord]=useState<any>(null);
   const [investigating,setInvestigating]=useState(false);
@@ -666,7 +689,7 @@ export function Transactions(){
 
     try{
       const result=await api<any>(
-        `/api/transactions/${encodeURIComponent(id.trim())}`
+        `/api/v1/domain/transactions/${encodeURIComponent(id.trim())}`
       );
       setRecord(result);
     }catch(e:any){
@@ -764,7 +787,7 @@ export function Transactions(){
           id:<button className="table-link" onClick={()=>{
             setId(x.id);
             setRecord(null);
-            setTimeout(()=>api(`/api/transactions/${encodeURIComponent(x.id)}`).then(setRecord).catch(e=>setInvestigationError(e.message)),0);
+            setTimeout(()=>api(`/api/v1/domain/transactions/${encodeURIComponent(x.id)}`).then(setRecord).catch(e=>setInvestigationError(e.message)),0);
             window.scrollTo({top:0,behavior:'smooth'});
           }}>{x.id}</button>,
           amount:x.amount!=null?money(x.amount):'—'
@@ -777,14 +800,14 @@ export function Transactions(){
 /* REFUNDS */
 
 export function Refunds(){
-  const {data,error,refresh}=useLoad<any[]>('/api/refunds');
+  const {data,error,refresh}=useLoad<any[]>('/api/v1/domain/refunds');
   const [detail,setDetail]=useState<any>(null);
 
   const rows=(data||[]).map(x=>({
     ...x,
     id:<button className="table-link" onClick={async()=>{
       try{
-        setDetail(await api(`/api/refunds/${encodeURIComponent(x.id)}`));
+        setDetail(await api(`/api/v1/domain/refunds/${encodeURIComponent(x.id)}`));
       }catch(e:any){
         setDetail({error:e.message});
       }
@@ -809,7 +832,7 @@ export function Refunds(){
 
 export function Disputes(){
   const {data,error,refresh}=useLoad<any[]>('/api/paypal/disputes');
-  const {data:local}=useLoad<any[]>('/api/disputes');
+  const {data:local}=useLoad<any[]>('/api/v1/domain/disputes');
 
   const [detail,setDetail]=useState<any>(null);
   const [loading,setLoading]=useState(false);
@@ -823,7 +846,7 @@ export function Disputes(){
     try{
       const path=isPayPal
         ?`/api/paypal/disputes/${encodeURIComponent(id)}`
-        :`/api/disputes/${encodeURIComponent(id)}/assessment`;
+        :`/api/v1/domain/disputes/${encodeURIComponent(id)}`;
 
       setDetail(await api<any>(path));
     }catch(e:any){
@@ -1045,7 +1068,7 @@ export function Milestones(){
 /* EVIDENCE */
 
 export function Evidence(){
-  const {data,error,refresh}=useLoad<any[]>('/api/evidence/files');
+  const {data,error,refresh}=useLoad<any[]>('/api/v1/domain/evidence');
   const [file,setFile]=useState<File|null>(null);
   const [order,setOrder]=useState('');
   const [type,setType]=useState('DELIVERY_CONFIRMATION');
@@ -1093,7 +1116,7 @@ export function Evidence(){
 /* AUDIT */
 
 export function Audit() {
-  const {data,error,busy} = useLoad<any[]>('/api/audit');
+  const {data,error,busy} = useLoad<any[]>('/api/v1/domain/audit');
 
   function parseDetail(value:any) {
     if (typeof value !== 'string') return value || {};
