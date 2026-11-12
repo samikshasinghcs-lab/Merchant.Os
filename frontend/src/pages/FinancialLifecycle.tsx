@@ -65,6 +65,8 @@ export default function FinancialLifecycle() {
   const [recon, setRecon] = useState<AnyRecord | null>(null);
   const [clusters, setClusters] = useState<AnyRecord | null>(null);
   const [orders, setOrders] = useState<AnyRecord[]>([]);
+  const [demoGraph, setDemoGraph] = useState<AnyRecord>({});
+  const [demoBatches, setDemoBatches] = useState<AnyRecord[]>([]);
   const [selected, setSelected] = useState<AnyRecord | undefined>(undefined);
   const [form, setForm] = useState(blankCase);
   const [quickSearch, setQuickSearch] = useState('');
@@ -77,13 +79,15 @@ export default function FinancialLifecycle() {
   const load = useCallback(async () => {
     setError('');
     try {
-      const [o, c, i, r, ord, cl] = await Promise.all([
+      const [o, c, i, r, ord, cl, graph, productBatches] = await Promise.all([
         api('/api/v1/financial-lifecycle/overview'),
         api('/api/v1/financial-lifecycle/cases'),
         api('/api/v1/financial-lifecycle/intelligence'),
         api('/api/v1/financial-lifecycle/reconciliation'),
         api('/api/v1/domain/orders'),
-        api('/api/v1/financial-lifecycle/complaint-clusters?threshold=0.28')
+        api('/api/v1/financial-lifecycle/complaint-clusters?threshold=0.28'),
+        api('/api/v1/demo/graph'),
+        api('/api/v1/demo/product-batches')
       ]);
       setOverview(asObject(o));
       setCases(asArray(c));
@@ -91,6 +95,8 @@ export default function FinancialLifecycle() {
       setRecon(asObject(r));
       setOrders(asArray(ord));
       setClusters(asObject(cl));
+      setDemoGraph(asObject(graph));
+      setDemoBatches(asArray(productBatches));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Financial lifecycle load failed.');
     }
@@ -130,6 +136,21 @@ export default function FinancialLifecycle() {
     }
   }
 
+  async function seedDemoData() {
+    setBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      const result = asObject(await api('/api/v1/demo/seed', { method: 'POST' }));
+      setMessage(`Demo dataset ready · ${result.status ?? 'seeded'} · 30 orders / 30 reviews · no PayPal money movement.`);
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Demo data seeding failed.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function runClustering() {
     setClusterBusy(true);
     setError('');
@@ -157,6 +178,8 @@ export default function FinancialLifecycle() {
   const weeklyRows = Object.entries(asObject(intel?.by_week));
   const productRows = Object.entries(asObject(intel?.by_product));
   const reasonRows = Object.entries(asObject(intel?.cost_by_reason));
+  const demoCustomers = asArray(demoGraph.customers);
+  const demoOrderCount = demoCustomers.reduce((total, customer) => total + asArray(customer.orders).length, 0);
 
   return (
     <main className="financial-lifecycle">
@@ -190,7 +213,10 @@ export default function FinancialLifecycle() {
           <h1 style={{ margin: '7px 0' }}>Financial command centre</h1>
           <p className="fl-muted">Costs, returns, exchanges, inventory disposition and accounting. Estimates are distinct from verified outcomes.</p>
         </div>
-        <button className="fl-btn" onClick={() => void load()}><RefreshCw size={14} /> Refresh</button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="fl-btn" disabled={busy} onClick={() => void seedDemoData()}>Seed demo data</button>
+          <button className="fl-btn" onClick={() => void load()}><RefreshCw size={14} /> Refresh</button>
+        </div>
       </header>
 
       {error && <div role="alert" className="fl-error"><AlertCircle size={15} /> {error}</div>}
@@ -201,6 +227,37 @@ export default function FinancialLifecycle() {
         <article className="fl-card"><span className="fl-muted">RESOLUTION CASES</span><div className="fl-metric">{overview?.case_count ?? '—'}</div><span className="fl-muted">{overview?.open_cases ?? '—'} open</span></article>
         <article className="fl-card"><span className="fl-muted">COST COVERAGE</span><div className="fl-metric">{overview?.cost_coverage ?? '—'}</div><span className="fl-muted">Orders with cost entries</span></article>
         <article className="fl-card"><span className="fl-muted">JOURNAL ENTRIES</span><div className="fl-metric">{overview?.journal_entries ?? '—'}</div><span className="fl-muted">Balanced entries only</span></article>
+      </section>
+
+      <section className="fl-card" aria-label="Unified synthetic commerce graph">
+        <div className="fl-head">
+          <div><h3>Unified commerce graph · synthetic demo</h3><p className="fl-muted">One customer → purchase history → review → refund/dispute → evidence → financial case. All records are tenant-scoped and illustrative.</p></div>
+          <span className="fl-muted">{demoGraph.source || 'Awaiting demo seed'}</span>
+        </div>
+        <div className="fl-grid">
+          <article className="fl-invest-box"><b>{demoCustomers.length}</b><p className="fl-muted">Customer profiles</p></article>
+          <article className="fl-invest-box"><b>{demoOrderCount}</b><p className="fl-muted">Linked orders</p></article>
+          <article className="fl-invest-box"><b>{demoCustomers.reduce((n, x) => n + asArray(x.orders).reduce((m, order) => m + asArray(order.reviews).length, 0), 0)}</b><p className="fl-muted">Linked reviews</p></article>
+          <article className="fl-invest-box"><b>{demoCustomers.reduce((n, x) => n + asArray(x.orders).reduce((m, order) => m + asArray(order.refund_proposals).length, 0), 0)}</b><p className="fl-muted">Refund proposals</p></article>
+        </div>
+        <h4>Customer purchase histories</h4>
+        {demoCustomers.length ? <div className="fl-grid">{demoCustomers.map(customer => (
+          <details className="fl-invest-box" key={String(customer.customer_id)}>
+            <summary><b>{customer.name}</b> · {customer.city} · {customer.order_count} orders</summary>
+            <p className="fl-muted">{customer.segment} · Lifetime value ₹{money(customer.lifetime_value)}</p>
+            {asArray(customer.orders).map(order => <div key={String(order.id)} style={{ borderTop: '1px solid var(--border,#e2e8f0)', paddingTop: 8, marginTop: 8 }}>
+              <b>{order.id}</b><p>{order.product} · {order.batch} · ₹{money(order.amount)}</p>
+              <p className="fl-muted">Review: {asArray(order.reviews).map(review => `${review.rating}/5 ${review.category}`).join(', ') || 'none'} · Refund proposal: {asArray(order.refund_proposals).map(refund => refund.status).join(', ') || 'none'} · Dispute: {asArray(order.disputes).map(dispute => dispute.status).join(', ') || 'none'} · Case: {asArray(order.financial_cases).map(item => item.status).join(', ') || 'none'}</p>
+            </div>)}
+          </details>
+        ))}</div> : <p className="fl-muted">No synthetic customer history loaded. Use “Seed demo data” after the deployment feature flag is enabled.</p>}
+        <h4>Product & batch signals</h4>
+        <div className="fl-grid">{demoBatches.map(batch => <article className="fl-invest-box" key={String(batch.sku)}>
+          <b>{batch.product} · {batch.batch}</b><p>{batch.units_sold} orders · {batch.complaint_count} complaints · {batch.risk_level}</p>
+          <p className="fl-muted">Damage: {batch.damage_count} · Leakage: {batch.leak_count} · Avg rating: {batch.average_rating}</p>
+          <small className="fl-muted">{asObject(batch.signals).recommended_action || 'Illustrative signal only.'}</small>
+        </article>)}</div>
+        <p className="fl-muted">Synthetic examples only. No PayPal transactions or confirmations are created; proposals do not execute refunds and inspection instructions do not move stock.</p>
       </section>
 
       <section className="fl-card" aria-label="Tenant complaint clustering">
