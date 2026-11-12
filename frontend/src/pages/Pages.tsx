@@ -1394,40 +1394,49 @@ export function Audit() {
 
 export function RootCause(){
   const {data,error,busy,refresh}=useLoad<Any>('/api/v1/domain/root-cause');
+  const {data:reviews}=useLoad<Any[]>('/api/v1/domain/reviews');
+  const [selected,setSelected]=useState<string|null>(null);
   const findings=Array.isArray(data?.findings)?data.findings:[];
-
+  const lowReviews=(reviews||[]).filter((r:any)=>Number(r.rating)>0&&Number(r.rating)<=2);
   return <>
-    <Heading
-      title="Root-cause intelligence"
-      sub="Explore complaint patterns linked to products, batches and merchant cases."
-      action={<button className="secondary" onClick={refresh}><RefreshCw size={14}/> Refresh</button>}
-    />
+    <Heading title="Root-cause intelligence" sub="Trace low ratings to the exact customer words, product, batch and related order. These are investigation leads, not proof of cause." action={<button className="secondary" onClick={refresh}><RefreshCw size={14}/> Refresh</button>}/>
     {error&&<div className="error">{error}</div>}
-    <div className="notice warning">
-      These are tenant-scoped descriptive signals. Correlation does not establish a manufacturing or operational cause.
-    </div>
+    <div className="notice warning">A poor review is a signal to investigate. Correlation does not establish a manufacturing or operational cause.</div>
+    <Panel title="Low-rated customer reviews" extra={<span className="muted">{lowReviews.length} reviews rated 1–2 stars</span>}>
+      {!lowReviews.length?<div className="empty-state"><b>No low-rated reviews returned</b><p>Reviews with a recorded rating of 1 or 2 will appear here.</p></div>:
+      <div className="insight-list">{lowReviews.map((r:any,index:number)=>{const id=String(r.id||index);const open=selected===id;return <article className="insight" key={id} style={{display:'block',borderBottom:'1px solid #edf0ed'}}>
+        <button type="button" className="table-link" style={{display:'flex',width:'100%',justifyContent:'space-between',alignItems:'center',textAlign:'left',fontSize:12,padding:8}} onClick={()=>setSelected(open?null:id)}>
+          <span><b>{r.product||r.category||'Customer review'}</b><small style={{display:'block',color:'#8995a3',marginTop:4}}>★ {r.rating}/5 · Order {r.order_id||'not linked'} · Batch {r.batch||'not recorded'}</small></span><b>{open?'−':'View review +'}</b>
+        </button>
+        {open&&<div style={{padding:'8px 12px 14px',background:'#faf9f6',borderRadius:10,marginTop:6}}><b>What the customer said</b><p style={{fontSize:13,lineHeight:1.65,color:'#46515b'}}>{r.text||r.review_text||'No written review text was recorded.'}</p><div className="form-grid"><div><small className="muted">Product</small><b>{r.product||'Not recorded'}</b></div><div><small className="muted">Category</small><b>{String(r.category||'Unclassified').replace(/_/g,' ')}</b></div><div><small className="muted">Order</small><b>{r.order_id||'Not linked'}</b></div><div><small className="muted">Batch</small><b>{r.batch||'Not recorded'}</b></div></div><small className="muted">This review is linked to the returned record only; verify order and batch details before assigning cause.</small></div>}
+      </article>;})}</div>}
+    </Panel>
     <Panel title="Batch and product signals" extra={<span className="muted">{findings.length} findings</span>}>
-      {busy
-        ? <p className="muted">Loading tenant intelligence…</p>
-        : findings.length
-          ? <div className="insight-list">
-              {findings.map((item:any,index:number)=>(
-                <article className="insight" key={item.batch||item.id||index}>
-                  <span className="insight-icon"><Activity size={17}/></span>
-                  <div>
-                    <b>{item.title||item.category||'Operational signal'}</b>
-                    <p>{item.summary||'No explanatory detail was returned.'}</p>
-                    {item.products?.length>0&&<p>Products: {item.products.join(', ')}</p>}
-                    <small className="muted">{item.interpretation||'Exploratory association only.'}</small>
-                  </div>
-                  <strong>{item.complaints??0} / {item.batch||'—'}</strong>
-                </article>
-              ))}
-            </div>
-          : <div className="empty-state"><b>No complaint concentration detected</b><p>Linked reviews and case records will appear here as they are added.</p></div>
-      }
+      {busy?<p className="muted">Loading tenant intelligence…</p>:findings.length?<div className="insight-list">{findings.map((item:any,index:number)=><article className="insight" key={item.batch||item.id||index}><span className="insight-icon"><Activity size={17}/></span><div><b>{item.title||item.category||'Operational signal'}</b><p>{item.summary||'No explanatory detail was returned.'}</p>{item.products?.length>0&&<p>Products: {item.products.join(', ')}</p>}<small className="muted">{item.interpretation||'Exploratory association only.'}</small></div><strong>{item.complaints??0} / {item.batch||'—'}</strong></article>)}</div>:<div className="empty-state"><b>No complaint concentration detected</b><p>Linked reviews and case records will appear here as they are added.</p></div>}
     </Panel>
     {data?.limitations&&<p className="muted">{data.limitations}</p>}
+  </>;
+}
+
+export function ReturnsRecovery(){
+  const {data,error,busy,refresh}=useLoad<Any[]>('/api/v1/financial-lifecycle/cases');
+  const rows=data||[];
+  const returns=rows.filter(x=>['RETURN','REFUND'].includes(String(x.case_type||'').toUpperCase()));
+  const exchanges=rows.filter(x=>String(x.case_type||'').toUpperCase()==='EXCHANGE');
+  const open=rows.filter(x=>!['CLOSED','REJECTED','COMPLETED'].includes(String(x.status||'').toUpperCase()));
+  const next=(item:any)=>{const status=String(item.status||'').toUpperCase();if(!item.evidence_count)return 'Collect and verify item photos, courier receipt and customer evidence.';if(status==='OPEN'||status==='UNDER_REVIEW')return 'Inspect the returned item and record its condition.';return 'Choose a disposition: restock, refurbish, repackage, quarantine, return to supplier or write off.';};
+  return <>
+    <Heading title="Returns & recovery" sub="Count returned and exchanged items, see which cases need attention, and decide the next inventory disposition." action={<button className="secondary" onClick={refresh}><RefreshCw size={14}/> Refresh</button>}/>
+    {error&&<div className="error">{error}</div>}
+    <div className="metric-grid"><Metric label="Returned / refund cases" value={returns.length} caption="Tenant case records" icon={ArrowDownLeft}/><Metric label="Exchange cases" value={exchanges.length} caption="Tenant case records" icon={RefreshCw}/><Metric label="Still open" value={open.length} caption="Needs follow-up" icon={Activity}/><Metric label="All return / exchange cases" value={returns.length+exchanges.length} caption="Returns and exchanges combined" icon={Boxes}/></div>
+    <Panel title="What should happen next?" >
+      <div className="insight-list">{[['Inspect','Check the item condition and match it to the original order.'],['Restock','Return sealed, saleable items to available stock after inspection.'],['Refurbish / repackage','Repair or repackage items that can safely be resold.'],['Quarantine','Hold damaged, unsafe or disputed items until reviewed.'],['Supplier return / write-off','Record supplier recovery or a documented write-off when resale is not appropriate.']].map(([title,desc])=><article className="insight" key={title}><span className="insight-icon"><Boxes size={17}/></span><div><b>{title}</b><p>{desc}</p></div></article>)}</div>
+      <div className="notice warning">These are recommended next steps, not automatic stock movements. MerchantOS does not change warehouse inventory without a connected inventory adapter and an authorized action.</div>
+    </Panel>
+    <Panel title="Return and exchange queue" extra={<span className="muted">{returns.length+exchanges.length} cases</span>}>
+      {busy?<p className="muted">Loading cases…</p>:!returns.length&&!exchanges.length?<div className="empty-state"><b>No return or exchange cases yet</b><p>Cases created from customer complaints and merchant investigations will appear here.</p></div>:<div className="insight-list">{[...returns,...exchanges].map((item:any)=><article className="insight" key={item.id}><span className="insight-icon"><Boxes size={17}/></span><div style={{flex:1}}><b>{String(item.case_type||'CASE').replace(/_/g,' ')} · {item.order_id||item.id}</b><p>{item.reason||'No reason recorded.'}</p><small className="muted">Status: {item.status||'Unknown'} · Evidence: {item.evidence_count??0} files · Requested: {item.requested_amount??'—'}</small><p><b>Next:</b> {next(item)}</p></div></article>)}</div>}
+    </Panel>
+    <div style={{display:'flex',gap:10,flexWrap:'wrap'}}><button className="primary" onClick={()=>{window.location.href='/financial-operations';}}>Open financial operations & case actions</button><button className="secondary" onClick={()=>{window.location.href='/evidence';}}>Open evidence vault</button></div>
   </>;
 }
 
