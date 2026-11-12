@@ -1267,3 +1267,48 @@ export function Audit() {
     </>
   );
         }
+
+/* ROOT-CAUSE INTELLIGENCE */
+
+export function RootCause(){
+  const {data,error,busy,refresh}=useLoad<Any>('/api/root-cause');
+  const findings=Array.isArray(data?.findings)?data.findings:[];
+
+  return <>
+    <Heading
+      title="Root-cause intelligence"
+      sub="Explore patterns across feedback, products and operational records."
+      action={<button className="secondary" onClick={refresh}><RefreshCw size={14}/> Refresh</button>}
+    />
+
+    {error&&<div className="error">{error}</div>}
+
+    <div className="notice warning">
+      Observed associations are signals to investigate, not proof of causation.
+    </div>
+
+    <Panel title="Observed findings">
+      {busy
+        ? <p className="muted">Loading root-cause analysis…</p>
+        : <div className="insight-list">
+            {findings.map((item:any,index:number)=>
+              <article className="insight" key={item.id||index}>
+                <span className="insight-icon"><Activity size={16}/></span>
+                <div>
+                  <b>{item.title||item.category||item.product||'Operational pattern'}</b>
+                  <p>{item.summary||item.description||item.detail||'Structured finding returned.'}</p>
+                </div>
+              </article>
+            )}
+            {!findings.length&&
+              <div className="empty-state">
+                <b>No root-cause findings yet</b>
+                <p>Import feedback and run review analysis to generate findings.</p>
+              </div>
+            }
+          </div>
+      }
+    </Panel>
+  </>;
+}
+
