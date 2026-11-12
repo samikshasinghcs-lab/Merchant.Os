@@ -7,6 +7,7 @@ on:
       - financial-lifecycle-integration
     paths:
       - "MerchantOS_COMPETITION_COMPLETED_BUILD.zip"
+      - ".github/workflows/import-merchantos.yml"
 
 permissions:
   contents: write
