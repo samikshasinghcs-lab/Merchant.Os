@@ -42,6 +42,7 @@ def seed_tenant_demo_data(tenant_id: str, actor_user_id: str | None = None) -> d
     if not tenant_id:
         raise ValueError("tenant_id is required")
 
+    tenant_prefix = uuid.uuid5(uuid.NAMESPACE_URL, f"merchantos-tenant:{tenant_id}").hex[:8].upper()
     names = [
         ("Aarav Mehta", "Bengaluru", "RETURNING"),
         ("Mira Shah", "Mysuru", "LOYAL"),
@@ -115,7 +116,7 @@ def seed_tenant_demo_data(tenant_id: str, actor_user_id: str | None = None) -> d
         order_issue_map = {}
         for index, item in enumerate(orders_data):
             order_key = item["key"]
-            order_id = f"DEMO-{order_key.upper()}"
+            order_id = f"DEMO-{tenant_prefix}-{order_key.upper()}"
             order_ids.append(order_id)
             customer_index = item["customer_index"]
             customer_name, _, _ = names[customer_index]
@@ -133,7 +134,7 @@ def seed_tenant_demo_data(tenant_id: str, actor_user_id: str | None = None) -> d
                     delivered_at=item["created"] + timedelta(days=3), hygiene_item=False,
                 ))
                 inserted["orders"] += 1
-            review_id = f"DEMO-REV-{index + 1:03d}"
+            review_id = f"DEMO-{tenant_prefix}-REV-{index + 1:03d}"
             review_ids.append(review_id)
             cluster = (
                 "DEMO-CLUSTER-PACKAGING-BATCH-A" if issue_category in {"PACKAGING_DAMAGE", "LEAKAGE"} and product["batch"] == "BATCH-A"
@@ -191,7 +192,7 @@ def seed_tenant_demo_data(tenant_id: str, actor_user_id: str | None = None) -> d
         for n, order_index in enumerate(proposal_indexes, start=1):
             order_id = order_ids[order_index]
             issue = order_issue_map[order_id]
-            refund_id = f"DEMO-REFUND-{n:03d}"
+            refund_id = f"DEMO-{tenant_prefix}-REFUND-{n:03d}"
             idem = f"{SEED_VERSION}:{tenant_id}:refund:{n:03d}"
             if session.get(TenantRefund, refund_id) is None:
                 session.add(TenantRefund(
@@ -207,7 +208,7 @@ def seed_tenant_demo_data(tenant_id: str, actor_user_id: str | None = None) -> d
         dispute_indexes = [0, 7, 13]
         for n, order_index in enumerate(dispute_indexes, start=1):
             order_id = order_ids[order_index]
-            dispute_id = f"DEMO-DISPUTE-{n:03d}"
+            dispute_id = f"DEMO-{tenant_prefix}-DISPUTE-{n:03d}"
             if session.get(TenantDispute, dispute_id) is None:
                 session.add(TenantDispute(
                     id=dispute_id, tenant_id=tenant_id, order_id=order_id,
@@ -216,7 +217,7 @@ def seed_tenant_demo_data(tenant_id: str, actor_user_id: str | None = None) -> d
                     evidence={"source": DEMO_LABEL, "provider_dispute": False, "payment_action": "NONE"},
                 ))
                 inserted["disputes"] += 1
-            evidence_id = f"DEMO-EVIDENCE-DISPUTE-{n:03d}"
+            evidence_id = f"DEMO-{tenant_prefix}-EVIDENCE-DISPUTE-{n:03d}"
             if session.get(TenantEvidence, evidence_id) is None:
                 session.add(TenantEvidence(
                     id=evidence_id, tenant_id=tenant_id, order_id=order_id,
@@ -268,7 +269,7 @@ def seed_tenant_demo_data(tenant_id: str, actor_user_id: str | None = None) -> d
                     ))
                     inserted["case_events"] += 1
 
-            evidence_id = f"DEMO-EVIDENCE-CASE-{n:03d}"
+            evidence_id = f"DEMO-{tenant_prefix}-EVIDENCE-CASE-{n:03d}"
             if session.get(TenantEvidence, evidence_id) is None:
                 session.add(TenantEvidence(
                     id=evidence_id, tenant_id=tenant_id, order_id=order_id,
