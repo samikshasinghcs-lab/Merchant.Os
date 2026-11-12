@@ -16,10 +16,17 @@ const actions = {
   StatusChips: source.includes("['OPEN','UNDER_REVIEW','APPROVED','REJECTED']"),
   RowInvestigation: source.includes('onRowClicked={e=>setSelected(e.data)}'),
   SavedFilters: source.includes('merchantos.savedFilter'),
-  ComplaintClustering: source.includes('/complaint-clusters/run')
+  ComplaintClustering: source.includes('/complaint-clusters/run'),
+  MultiRowSelection: source.includes("mode: 'multiRow'") && source.includes('headerCheckbox: true'),
+  StableRowIdentity: source.includes('getRowId={params => String(params.data.id)}'),
+  SelectedCSVExport: source.includes('onlySelected: true') && source.includes('exportSelected'),
+  PersistentColumnLayout: source.includes('getColumnState()') && source.includes('applyColumnState'),
+  PersistentFilters: source.includes('getFilterModel()') && source.includes('setFilterModel'),
+  PaginationControls: source.includes('paginationPageSizeSelector={[10, 25, 50, 100]}'),
+  ResetGrid: source.includes('resetGridView')
 };
 if (missing.length || Object.values(actions).some(value => !value)) {
   console.error(JSON.stringify({missingColumns: missing, actions}, null, 2));
   process.exit(1);
 }
-console.log('PASS: all 13 required financial case columns and 7 grid/clustering interactions are present.');
+console.log('PASS: all 13 required financial case columns and expanded AG Grid interactions are present.');
