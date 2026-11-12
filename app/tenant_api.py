@@ -1,7 +1,9 @@
 """Authenticated tenant-scoped PostgreSQL API. These endpoints never query legacy SQLite."""
-import uuid
+import uuid, csv, io, os, hashlib
+from pathlib import Path
+from uuid import NAMESPACE_URL, uuid5
 from decimal import Decimal
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy import select
 from . import auth as identity
 from .tenant_db import tenant_session
@@ -418,4 +420,175 @@ def tenant_dispute_detail(dispute_id: str, p=Depends(principal)):
             'provider_case_id': None,
             'provider_submission': 'NOT_SUBMITTED',
         }
+
+@router.post('/reviews/import')
+async def tenant_import_reviews(file: UploadFile = File(...), p=Depends(principal)):
+    """Import a merchant-authorized CSV directly into the authenticated tenant."""
+    if p['role'] not in {'OWNER', 'ADMIN', 'OPERATOR'}:
+        raise HTTPException(403, 'Insufficient workspace role')
+    data = await file.read(5 * 1024 * 1024 + 1)
+    if not data or len(data) > 5 * 1024 * 1024:
+        raise HTTPException(413, 'CSV must be between 1 byte and 5 MB')
+    try:
+        decoded = data.decode('utf-8-sig')
+        reader = csv.DictReader(io.StringIO(decoded))
+    except UnicodeDecodeError:
+        raise HTTPException(400, 'CSV must be UTF-8 encoded')
+    required = {'text'}
+    headers = {str(x or '').strip().lower() for x in (reader.fieldnames or [])}
+    if not required.issubset(headers):
+        raise HTTPException(400, 'CSV must include a text column')
+    digest = hashlib.sha256(data).hexdigest()
+    imported = 0
+    duplicates = 0
+    skipped = 0
+    with tenant_session(p['tenant_id']) as s:
+        for row_number, raw in enumerate(reader, start=1):
+            row = {str(k or '').strip().lower(): str(v or '').strip() for k, v in raw.items() if k}
+            text_value = row.get('text', '')
+            if not text_value:
+                skipped += 1
+                continue
+            if len(text_value) > 5000:
+                raise HTTPException(400, f'Row {row_number}: review text exceeds 5,000 characters')
+            order_id = row.get('order_id') or None
+            order = None
+            if order_id:
+                order = s.scalar(select(TenantOrder).where(
+                    TenantOrder.id == order_id, TenantOrder.tenant_id == p['tenant_id']
+                ))
+                if not order:
+                    raise HTTPException(400, f'Row {row_number}: order_id does not belong to this workspace')
+            rating = None
+            if row.get('rating'):
+                try:
+                    rating = int(row['rating'])
+                except ValueError:
+                    raise HTTPException(400, f'Row {row_number}: rating must be an integer from 1 to 5')
+                if rating < 1 or rating > 5:
+                    raise HTTPException(400, f'Row {row_number}: rating must be an integer from 1 to 5')
+            review_id = 'import-' + uuid5(
+                NAMESPACE_URL, f"merchantos-review:{p['tenant_id']}:{digest}:{row_number}"
+            ).hex
+            exists = s.scalar(select(TenantReview.id).where(
+                TenantReview.tenant_id == p['tenant_id'], TenantReview.id == review_id
+            ))
+            if exists:
+                duplicates += 1
+                continue
+            customer_id = order.customer_id if order else (row.get('customer_id') or None)
+            customer_name = order.customer_name if order else (row.get('customer_name') or None)
+            product = order.product if order else (row.get('product') or None)
+            s.add(TenantReview(
+                id=review_id, tenant_id=p['tenant_id'],
+                customer_id=customer_id, customer_name=customer_name,
+                order_id=order_id, product=product, rating=rating,
+                text=text_value, category=row.get('category') or None,
+                severity=row.get('severity') or None,
+            ))
+            imported += 1
+        if imported:
+            s.add(TenantAuditEvent(
+                id='audit-' + uuid5(NAMESPACE_URL, f"merchantos-review-import:{p['tenant_id']}:{digest}").hex,
+                tenant_id=p['tenant_id'], actor_user_id=p['user_id'],
+                event='TENANT_REVIEWS_IMPORTED', entity_type='REVIEW_IMPORT',
+                entity_id=digest,
+                detail={'source': 'MERCHANT_AUTHORIZED_CSV', 'file_sha256': digest,
+                        'imported': imported, 'duplicates': duplicates, 'skipped': skipped},
+            ))
+    return {'imported': imported, 'duplicates': duplicates, 'skipped': skipped,
+            'source': 'TENANT_SCOPED_CSV_IMPORT', 'file_sha256': digest}
+
+
+@router.post('/evidence/upload')
+async def tenant_upload_evidence(
+    order_id: str,
+    evidence_type: str,
+    description: str,
+    file: UploadFile = File(...),
+    p=Depends(principal),
+):
+    """Store verified evidence privately and link it to a tenant-owned order."""
+    if p['role'] not in {'OWNER', 'ADMIN', 'OPERATOR'}:
+        raise HTTPException(403, 'Insufficient workspace role')
+    allowed = {'DELIVERY_CONFIRMATION', 'CUSTOMER_COMMUNICATION', 'PRODUCT_PHOTO', 'ORDER_RECORD', 'TEST_RESULT', 'SCREENSHOT', 'OTHER'}
+    if evidence_type not in allowed:
+        raise HTTPException(400, 'Unsupported evidence type')
+    description = description.strip()
+    if not 5 <= len(description) <= 1000:
+        raise HTTPException(400, 'Description must contain 5–1,000 characters')
+    mime = (file.content_type or '').lower()
+    signatures = {
+        'image/jpeg': b'\\xff\\xd8\\xff',
+        'image/png': b'\\x89PNG\\r\\n\\x1a\\n',
+        'application/pdf': b'%PDF-',
+    }
+    if mime not in signatures:
+        raise HTTPException(400, 'Only JPEG, PNG and PDF evidence is accepted')
+    data = await file.read(5 * 1024 * 1024 + 1)
+    if not data or len(data) > 5 * 1024 * 1024:
+        raise HTTPException(413, 'Evidence file must be between 1 byte and 5 MB')
+    if not data.startswith(signatures[mime]):
+        raise HTTPException(400, 'File signature does not match the declared content type')
+    digest = hashlib.sha256(data).hexdigest()
+    root = Path(os.getenv('MERCHANTOS_EVIDENCE_DIR', os.getenv('EVIDENCE_UPLOAD_DIR', '/var/data/merchantos-evidence'))).resolve()
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        os.chmod(root, 0o700)
+    except OSError:
+        raise HTTPException(503, 'Private evidence storage is unavailable; configure a persistent private disk')
+    suffix = {'image/jpeg': '.jpg', 'image/png': '.png', 'application/pdf': '.pdf'}[mime]
+    storage_name = uuid.uuid4().hex + suffix
+    target = (root / storage_name).resolve()
+    if root not in target.parents:
+        raise HTTPException(400, 'Invalid storage path')
+    with tenant_session(p['tenant_id']) as s:
+        order = s.scalar(select(TenantOrder).where(
+            TenantOrder.id == order_id, TenantOrder.tenant_id == p['tenant_id']
+        ))
+        if not order:
+            raise HTTPException(404, 'Order not found in this merchant workspace')
+        duplicate = s.scalar(select(TenantEvidence.id).where(
+            TenantEvidence.tenant_id == p['tenant_id'], TenantEvidence.sha256 == digest
+        ))
+        if duplicate:
+            raise HTTPException(409, 'Duplicate evidence file already exists in this workspace')
+        try:
+            with target.open('xb') as handle:
+                handle.write(data)
+        except OSError:
+            raise HTTPException(503, 'Could not persist evidence to private storage')
+        evidence_id = str(uuid.uuid4())
+        s.add(TenantEvidence(
+            id=evidence_id, tenant_id=p['tenant_id'], order_id=order_id,
+            evidence_type=evidence_type, description=description,
+            storage_key=storage_name, sha256=digest,
+            integrity_status='SHA256_VERIFIED',
+        ))
+        s.add(TenantAuditEvent(
+            id=str(uuid.uuid4()), tenant_id=p['tenant_id'],
+            actor_user_id=p['user_id'], event='TENANT_EVIDENCE_UPLOADED',
+            entity_type='EVIDENCE', entity_id=evidence_id,
+            detail={'order_id': order_id, 'sha256': digest, 'mime_type': mime, 'size_bytes': len(data)},
+        ))
+    return {'id': evidence_id, 'order_id': order_id, 'sha256': digest,
+            'integrity_status': 'SHA256_VERIFIED', 'size_bytes': len(data),
+            'storage': 'PRIVATE_DISK'}
+
+
+@router.get('/evidence/{evidence_id}/download')
+def tenant_download_evidence(evidence_id: str, p=Depends(principal)):
+    from fastapi.responses import FileResponse
+    with tenant_session(p['tenant_id']) as s:
+        row = s.scalar(select(TenantEvidence).where(
+            TenantEvidence.id == evidence_id, TenantEvidence.tenant_id == p['tenant_id']
+        ))
+        if not row or not row.storage_key:
+            raise HTTPException(404, 'Evidence file not found')
+        root = Path(os.getenv('MERCHANTOS_EVIDENCE_DIR', os.getenv('EVIDENCE_UPLOAD_DIR', '/var/data/merchantos-evidence'))).resolve()
+        target = (root / row.storage_key).resolve()
+        if root not in target.parents or not target.is_file():
+            raise HTTPException(404, 'Evidence file is unavailable')
+        media = 'application/pdf' if target.suffix == '.pdf' else ('image/png' if target.suffix == '.png' else 'image/jpeg')
+        return FileResponse(target, media_type=media, filename=f'evidence-{row.id}{target.suffix}')
 
