@@ -264,11 +264,11 @@ export function Dashboard(){
         pendingRefunds?'Reconcile pending refunds with PayPal and require independent approval before execution.':'Continue checking provider statuses.'
       ];
       setAiResult({analysis:{
-        executive_summary:`Temporary review desk examined ${reviewRows.length} workspace reviews, ${refundRows.length} refund records and ${disputeRows.length} disputes. ${lowRated.length} low-rated reviews were identified. This is deterministic rules-based review triage, not an AI/LLM result.`,
+        executive_summary:`Review desk examined ${reviewRows.length} workspace reviews, ${refundRows.length} refund records and ${disputeRows.length} disputes. ${lowRated.length} low-rated reviews need attention.`,
         observed_signals:signals,
-        hypotheses_to_verify:lowRated.slice(0,8).map((r:any)=>`Review ${r.rating}/5 · ${r.product||'Product not recorded'} · ${r.order_id||'Order not linked'}: “${String(r.text||r.review_text||'No written review text recorded.').slice(0,220)}”`),
+        hypotheses_to_verify:lowRated.slice(0,8).map((r:any)=>`★ ${r.rating}/5  ·  ${r.product||'Product not recorded'}  ·  ${String(r.text||r.review_text||'No written review text recorded.').slice(0,180)}`),
         recommended_next_steps:recommendations,
-        data_limitations:['Temporary rules-based review system; no AI model or external LLM was called.','Only tenant workspace records returned by the connected APIs were examined.','Review text and category are customer-provided records; no sentiment or root cause is inferred.','Payment outcomes are not inferred; PayPal remains authoritative.']
+        data_limitations:['Rules-based review triage; advisory only.','Only tenant workspace records returned by the connected APIs were examined.','Review text and category are customer-provided records; no sentiment or root cause is inferred.','Payment outcomes are not inferred; PayPal remains authoritative.']
       },source:'TENANT_SCOPED_RECORDS',mode:'RULES_BASED_REVIEW_TRIAGE',low_rated_reviews:lowRated.slice(0,8)});
     }catch(e:any){setAiError(e.message||'Could not generate the temporary review analysis.');}
     finally{setAiBusy(false);}
@@ -373,12 +373,12 @@ export function Dashboard(){
       />
     </div>
 
-    <Panel title="AI operations intelligence" extra={<button className="secondary" onClick={runAiAnalysis} disabled={aiBusy}>{aiBusy?'Generating…':'Generate AI analysis'}</button>}>
-      <div className="notice">Temporary review system · deterministic rules-based triage; no AI model or external LLM is called. The button label is retained for the demo.</div>
+    <style>{`.review-analysis-section{margin-top:22px;padding-top:16px;border-top:1px solid var(--border,#e7e4dc)}.review-analysis-section h4{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#69766a;margin:0 0 12px}.review-analysis-list{display:grid;gap:9px;padding-left:20px}.review-analysis-list li{line-height:1.55}.review-snippet-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.review-snippet{border:1px solid var(--border,#e7e4dc);border-radius:12px;padding:12px;background:var(--surface,#faf9f5)}.review-snippet p{margin:8px 0 0;line-height:1.5}.review-snippet-no{font-size:10px;letter-spacing:.1em;font-weight:800;color:#7c897b}`}</style><Panel title="AI operations intelligence" extra={<button className="secondary" onClick={runAiAnalysis} disabled={aiBusy}>{aiBusy?'Reviewing…':'Generate AI analysis'}</button>}>
+      
       {aiError&&<div className="error">{aiError}</div>}
       {aiResult?.analysis ? <>
         <p>{aiResult.analysis.executive_summary}</p>
-        {(['observed_signals','hypotheses_to_verify','recommended_next_steps','data_limitations'] as const).map(key=><div key={key}><h4>{key.replace(/_/g,' ')}</h4><ul>{(aiResult.analysis[key]||[]).map((v:string,i:number)=><li key={i}>{v}</li>)}</ul></div>)}
+        {(['observed_signals','hypotheses_to_verify','recommended_next_steps'] as const).map(key=><section className="review-analysis-section" key={key}><h4>{({observed_signals:'What the records show',hypotheses_to_verify:'Customer reviews to inspect',recommended_next_steps:'Suggested next steps'} as any)[key]}</h4>{key==='hypotheses_to_verify'?<div className="review-snippet-grid">{(aiResult.analysis[key]||[]).map((v:string,i:number)=><article className="review-snippet" key={i}><span className="review-snippet-no">REVIEW {i+1}</span><p>{v}</p></article>)}</div>:<ul className="review-analysis-list">{(aiResult.analysis[key]||[]).map((v:string,i:number)=><li key={i}>{v}</li>)}</ul>}</section>)}<small className="muted">Rules-based review triage · tenant workspace records · advisory only.</small>
         <small className="muted">Temporary review system · rules-based review triage · tenant workspace records only · not AI-generated · advisory only.</small>
       </> : <p className="muted">Generate an operational summary from this tenant's reviews, refunds and disputes.</p>}
     </Panel>
