@@ -611,6 +611,7 @@ export function Customers(){
     </>
   );
 })()}
+  </>;
 }
 
 /* REVIEWS */
