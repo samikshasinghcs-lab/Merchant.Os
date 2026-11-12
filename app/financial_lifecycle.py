@@ -57,7 +57,7 @@ def audit(s,p,event,etype,eid,detail):
 class OrderCost(Base):
     __tablename__="financial_order_costs"
     __table_args__=(UniqueConstraint("tenant_id","order_id",name="uq_fin_cost_tenant_order"),Index("ix_fin_cost_tenant","tenant_id"))
-    id:Mapped[str]=mapped_column(String(36),primary_key=True)
+    id:Mapped[str]=mapped_column(String(64),primary_key=True)
     tenant_id:Mapped[str]=mapped_column(String(36),nullable=False,index=True)
     order_id:Mapped[str]=mapped_column(String(100),nullable=False,index=True)
     cogs:Mapped[Decimal]=mapped_column(Numeric(14,2),default=0,nullable=False)
