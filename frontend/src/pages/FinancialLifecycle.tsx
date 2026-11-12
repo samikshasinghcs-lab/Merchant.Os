@@ -99,7 +99,7 @@ export default function FinancialLifecycle() {
   useEffect(() => { void load(); }, [load]);
 
   const columnDefs = useMemo<ColDef<AnyRecord>[]>(() => [
-    { field: 'id', headerName: 'Case ID', minWidth: 180 },
+    { field: 'id', headerName: 'Case ID', minWidth: 150, valueFormatter: params => params.value ? `CASE-${String(params.value).slice(0, 8).toUpperCase()}` : '' },
     { field: 'case_type', headerName: 'Type', cellRenderer: chip },
     { field: 'customer', headerName: 'Customer' },
     { field: 'product', headerName: 'Product' },
@@ -515,7 +515,7 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
   return (
     <section className="fl-card" style={{ marginTop: 14, display: 'grid', gap: 14 }}>
       <header className="fl-head">
-        <div><div className="fl-kicker">CASE INVESTIGATION · SANDBOX / DEMO DATA</div><h2>Case {caseData.id ?? selected.id}</h2><span className="fl-muted">{caseData.case_type ?? selected.case_type} · {caseData.status ?? selected.status} · Order {caseData.order_id ?? selected.order_id}</span></div>
+        <div><div className="fl-kicker">CASE INVESTIGATION · SANDBOX / DEMO DATA</div><h2>Case CASE-{String(caseData.id ?? selected.id).slice(0, 8).toUpperCase()}</h2><small className="fl-muted">Internal reference: {caseData.id ?? selected.id}</small><span className="fl-muted">{caseData.case_type ?? selected.case_type} · {caseData.status ?? selected.status} · Order {caseData.order_id ?? selected.order_id}</span></div>
         <span className="fl-muted">AI: computed rules · not an accuracy claim</span>
       </header>
 
@@ -565,6 +565,11 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
         <p><b>Recovered item value:</b> {order.currency ?? ''} {recovered.toFixed(2)} · <b>Estimated net:</b> {order.currency ?? ''} {net.toFixed(2)}</p>
         <small className="fl-muted">Based on merchant-entered COGS and estimated costs. PayPal fee treatment must be checked against merchant terms.</small>
         <button type="button" className="fl-btn" disabled={busy} onClick={() => void submitDisposition()}>Record disposition instruction</button>
+      </article>
+
+      <article className="fl-invest-box">
+        <h4>Recorded inventory disposition</h4>
+        {asArray(detail.dispositions).length ? asArray(detail.dispositions).map((item, index) => <p key={String(item.id || index)}><b>{String(item.disposition).replaceAll('_',' ')}</b> · Qty {item.quantity} · Estimated recovery {order.currency ?? ''} {item.estimated_recovery} {item.realized_recovery != null ? `· Verified recovery ${order.currency ?? ''} ${item.realized_recovery}` : '· Actual recovery not verified'}<small className="fl-muted"> · {item.created_at ? new Date(item.created_at).toLocaleString() : 'Date unavailable'}</small></p>) : <p className="fl-muted">No disposition instruction recorded yet.</p>}
       </article>
 
       <article className="fl-invest-box">
