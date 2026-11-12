@@ -1,0 +1,11 @@
+name = "merchantos-financial-lifecycle"
+main = "src/index.ts"
+compatibility_date = "2026-11-12"
+
+[vars]
+JWT_ISSUER = "merchantos-api"
+JWT_AUDIENCE = "merchantos-client"
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "REPLACE_WITH_YOUR_HYPERDRIVE_ID"
