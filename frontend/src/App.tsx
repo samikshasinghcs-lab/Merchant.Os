@@ -3,12 +3,12 @@ import {NavLink,Route,Routes,useLocation,useNavigate} from 'react-router-dom';
 import {Activity,AlertTriangle,ArrowDownLeft,ArrowUpRight,BriefcaseBusiness,Check,CheckCircle2,ChevronRight,ChartNoAxesCombined,FileCheck2,FileText,LayoutDashboard,LogOut,Menu,Receipt,Search,ShieldCheck,Users,WalletCards,Zap,LockKeyhole,Workflow,Command,Play,PanelLeftClose,PanelLeftOpen,X,Keyboard,LifeBuoy} from 'lucide-react';
 import type {LucideIcon} from 'lucide-react';
 import {api,token} from './lib/api';
-import {Dashboard,Customers,Transactions,Refunds,Disputes,Agreements,Milestones,Reviews,Audit,Evidence,RootCause,Login} from './pages/Pages';
+import {Dashboard,Customers,Transactions,Refunds,Disputes,Reviews,Audit,Evidence,RootCause,Login} from './pages/Pages';
 import ExecutionTimeline from './pages/ExecutionTimeline';
 import FinancialLifecycle from './pages/FinancialLifecycle';
 import Proof from './pages/Proof';
 
-const nav=[['Overview','/',LayoutDashboard],['Customer intelligence','/customers',Users],['Review lab','/reviews',Search],['Transactions','/transactions',WalletCards],['Execution timeline','/execution',Workflow],['Refund investigations','/refunds',ArrowDownLeft],['Dispute center','/disputes',AlertTriangle],['Agreements','/agreements',FileText],['Milestones','/milestones',BriefcaseBusiness],['Evidence vault','/evidence',FileCheck2],['Root-cause intelligence','/root-cause',ChartNoAxesCombined],['Trust & audit','/audit',ShieldCheck]] as const;
+const nav=[['Overview','/',LayoutDashboard],['Customer intelligence','/customers',Users],['Review lab','/reviews',Search],['Transactions','/transactions',WalletCards],['Execution timeline','/execution',Workflow],['Refund investigations','/refunds',ArrowDownLeft],['Dispute center','/disputes',AlertTriangle],['Evidence vault','/evidence',FileCheck2],['Root-cause intelligence','/root-cause',ChartNoAxesCombined],['Trust & audit','/audit',ShieldCheck]] as const;
 
 function ProductPreview(){
   const [tab,setTab]=useState(0);
