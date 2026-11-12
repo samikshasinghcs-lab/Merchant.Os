@@ -234,34 +234,56 @@ export function Dashboard(){
   async function runAiAnalysis(){
     setAiBusy(true); setAiError(''); setAiResult(null);
     try{
-      const [reviews,refunds,disputes] = await Promise.all([
-        api<any[]>('/api/v1/domain/reviews'),
-        api<any[]>('/api/v1/domain/refunds'),
-        api<any[]>('/api/v1/domain/disputes')
-      ]);
-      const reviewRows=Array.isArray(reviews)?reviews:[];
-      const refundRows=Array.isArray(refunds)?refunds:[];
-      const disputeRows=Array.isArray(disputes)?disputes:[];
-      const rated=reviewRows.filter((x:any)=>Number.isFinite(Number(x.rating))&&x.rating!==null);
+      const response=await api<any>('/api/v1/domain/reviews');
+      const reviewRows=Array.isArray(response)?response:Array.isArray(response?.items)?response.items:[];
+      const rated=reviewRows.filter((x:any)=>x.rating!==null&&x.rating!==undefined&&Number.isFinite(Number(x.rating))&&Number(x.rating)>=1&&Number(x.rating)<=5);
       const average=rated.length? rated.reduce((n:number,x:any)=>n+Number(x.rating),0)/rated.length:null;
-      const categories=reviewRows.reduce((acc:any,x:any)=>{const k=String(x.category||'Unclassified').replace(/_/g,' ');acc[k]=(acc[k]||0)+1;return acc;},{});
-      const top=Object.entries(categories).sort((a:any,b:any)=>b[1]-a[1]).slice(0,3);
-      const openDisputes=disputeRows.filter((x:any)=>['OPEN','ILLUSTRATIVE_OPEN','PENDING'].includes(String(x.status||'').toUpperCase())).length;
-      const pendingRefunds=refundRows.filter((x:any)=>!['COMPLETED','REFUNDED','SUCCEEDED'].includes(String(x.paypal_status||'').toUpperCase())).length;
-      const signals=[
-        `${reviewRows.length} review records were examined; ${rated.length} contain a recorded star rating.`,
-        average===null?'No numeric review ratings are available to calculate an average.':`Average recorded rating: ${average.toFixed(1)} / 5 across ${rated.length} rated reviews.`,
-        top.length?`Most frequent recorded review categories: ${top.map(([k,v])=>`${k} (${v})`).join(', ')}.`:'No review categories are recorded.',
-        `${openDisputes} disputes currently have an open/pending status.`,
-        `${pendingRefunds} refund records are not marked as provider-completed; verify each with PayPal before treating it as paid.`
+      const low=rated.filter((x:any)=>Number(x.rating)<=2);
+      const distribution=[5,4,3,2,1].map(stars=>({stars,count:rated.filter((x:any)=>Number(x.rating)===stars).length}));
+      const themes=[
+        {name:'Product quality / damage',pattern:/quality|damag|broken|defect|faulty|poorly made|crack/i},
+        {name:'Delivery / shipping',pattern:/deliver|shipping|courier|late|delay|arriv|tracking/i},
+        {name:'Wrong or missing item',pattern:/wrong item|missing item|incorrect|not what|different product/i},
+        {name:'Packaging',pattern:/packag|box|wrapp|seal/i},
+        {name:'Customer support',pattern:/support|service|response|contact|staff|refund|return/i},
+        {name:'Price / value',pattern:/price|cost|expensive|value|worth/i}
       ];
-      const recommendations=[
-        openDisputes?'Prioritize open disputes and attach order-specific evidence.':'Continue monitoring disputes; none are currently marked open.',
-        pendingRefunds?'Reconcile pending refunds against PayPal and require independent approval before execution.':'Continue checking provider statuses for refund records.',
-        rated.length?'Review low-star feedback and investigate recurring categories.':'Collect rated customer feedback before drawing satisfaction conclusions.'
+      const themeCounts=themes.map(t=>({name:t.name,count:reviewRows.filter((r:any)=>t.pattern.test(String(r.text||r.review_text||r.comment||''))).length})).filter(x=>x.count>0).sort((a,b)=>b.count-a.count);
+      const excerpts=low.slice(0,8).map((r:any)=>({
+        rating:Number(r.rating),
+        customer:String(r.customer_name||r.customer_id||'Customer'),
+        product:String(r.product||'Product not recorded'),
+        order:String(r.order_id||r.order_reference||'Not linked'),
+        text:String(r.text||r.review_text||r.comment||'No written review text recorded.')
+      }));
+      const observed=[
+        `${reviewRows.length} review records were examined; ${rated.length} have a valid 1–5 star rating.`,
+        average===null?'No valid star ratings are available to calculate an average.':`Average recorded rating: ${average.toFixed(1)} / 5.`,
+        `${low.length} reviews are rated 1–2 stars and need human review.`,
+        'Rating distribution: '+distribution.map(x=>x.stars+'★ '+x.count).join(' · ')+'.',
+        themeCounts.length?'Text-matched themes: '+themeCounts.map(x=>x.name+' ('+x.count+')').join(', ')+'.':'No predefined issue themes matched the available review text.'
       ];
-      setAiResult({analysis:{executive_summary:`MerchantOS reviewed ${reviewRows.length} feedback records, ${refundRows.length} refund records and ${disputeRows.length} dispute records. This is a rules-based operational summary, not a live LLM response.`,observed_signals:signals,hypotheses_to_verify:top.length?top.map(([k,v])=>`Check whether “${k}” (${v} recorded reviews) reflects a recurring product or service issue; validate against order evidence.`):['There is not enough categorized review data to identify a recurring theme.'],recommended_next_steps:recommendations,data_limitations:['Temporary deterministic demo analysis; no external LLM was called.','Only records returned by the current merchant workspace APIs were used.','No payment or refund outcome is inferred from a MerchantOS proposal; PayPal remains authoritative.']},source:'TENANT_SCOPED_RECORDS',mode:'RULES_BASED_DEMO'});
-    }catch(e:any){setAiError(e.message||'Could not generate operational analysis.');}
+      const next=[
+        low.length?`Open and investigate the ${low.length} low-rated reviews; verify each against its order and evidence.`:'Continue monitoring incoming feedback; no 1–2 star reviews were returned.',
+        themeCounts.length?`Prioritize “${themeCounts[0].name}” for a manual sample check; keyword matches are only triage signals.`:'Collect more written review text before prioritizing a theme.',
+        'Link each complaint to its order, product and evidence before proposing a refund or operational action.'
+      ];
+      setAiResult({analysis:{
+        executive_summary:`Temporary review analysis examined ${reviewRows.length} workspace review records. ${low.length} are rated 1–2 stars${average===null?'':`; average rating is ${average.toFixed(1)} / 5`}. This is deterministic rules-based triage, not AI.`,
+        observed_signals:observed,
+        hypotheses_to_verify:themeCounts.length?themeCounts.map(x=>`“${x.name}” matched ${x.count} review(s) by simple keyword rules. Read the original reviews and verify before assigning a root cause.`):['No recurring issue theme can be inferred from the available review text.'],
+        recommended_next_steps:next,
+        data_limitations:[
+          'Temporary review-only rules engine; no AI model or external LLM was called.',
+          'Theme detection uses simple keyword matching and can miss context, sarcasm or synonyms.',
+          'Only records returned by the current merchant workspace reviews API were examined.',
+          'A low rating or keyword match is a triage signal, not proof of fault or grounds for an automatic refund.'
+        ],
+        rating_distribution:distribution,
+        theme_counts:themeCounts,
+        low_rating_reviews:excerpts
+      },source:'TENANT_SCOPED_REVIEW_RECORDS',mode:'TEMPORARY_RULES_BASED_REVIEW'});
+    }catch(e:any){setAiError(e.message||'Could not generate review analysis.');}
     finally{setAiBusy(false);}
   }
 
@@ -370,7 +392,9 @@ export function Dashboard(){
       {aiResult?.analysis ? <>
         <p>{aiResult.analysis.executive_summary}</p>
         {(['observed_signals','hypotheses_to_verify','recommended_next_steps','data_limitations'] as const).map(key=><div key={key}><h4>{key.replace(/_/g,' ')}</h4><ul>{(aiResult.analysis[key]||[]).map((v:string,i:number)=><li key={i}>{v}</li>)}</ul></div>)}
-        <small className="muted">MerchantOS AI · Temporary rules-based demo engine · Workspace records only · Advisory; no financial action authorized.</small>
+        {aiResult.analysis.rating_distribution&&<div><h4>Rating distribution</h4><div className="metric-grid">{aiResult.analysis.rating_distribution.map((x:any)=><Metric key={x.stars} label={`${x.stars} star`} value={x.count} caption="Recorded reviews" icon={Activity}/>)}</div></div>}
+        {aiResult.analysis.low_rating_reviews?.length>0&&<div><h4>Low-rated reviews to inspect</h4><div className="customer-review-list">{aiResult.analysis.low_rating_reviews.map((r:any,i:number)=><article className="customer-review" key={i}><div className="customer-review-head"><b>{r.customer} · {r.product}</b><span className="review-rating">{r.rating} / 5</span></div><p className="review-copy">“{r.text}”</p><small className="muted">Order: {r.order}</small></article>)}</div></div>}
+        <small className="muted">MerchantOS · Temporary rules-based review analysis · Workspace review records only · Not AI · Advisory; no financial action authorized.</small>
       </> : <p className="muted">Generate an operational summary from this tenant's reviews, refunds and disputes.</p>}
     </Panel>
     <div className="two-col">
