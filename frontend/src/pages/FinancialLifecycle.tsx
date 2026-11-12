@@ -471,8 +471,9 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
       const result = asObject(await api(`/api/v1/financial-lifecycle/cases/${selected.id}/refund-approval`, {
         method: 'POST', body: JSON.stringify({})
       }));
-      setApproval(result);
-      onMessage(`Linked PayPal approval request ${result.approval_id ?? ''} · ${result.status ?? ''}. Independent approval is still required.`);
+      setApproval({ ...result, id: result.approval_id ?? result.id });
+      onMessage(`Linked PayPal approval request ${result.approval_id ?? result.id ?? ''} · ${result.status ?? ''}. Independent approval is still required.`);
+      await refresh();
     } catch (cause) {
       onError(cause instanceof Error ? cause.message : 'Refund approval request failed.');
     } finally {
