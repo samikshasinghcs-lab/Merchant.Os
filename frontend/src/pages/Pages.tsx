@@ -443,13 +443,13 @@ export function Customers(){
 
     {detail && (() => {
   const customer = detail.customer || detail;
-  const reviews = Array.isArray(customer.reviews)
-    ? customer.reviews
-    : [];
+  const reviews = Array.isArray(detail.reviews)
+    ? detail.reviews
+    : Array.isArray(customer.reviews) ? customer.reviews : [];
 
-  const orders = Array.isArray(customer.orders)
-    ? customer.orders
-    : [];
+  const orders = Array.isArray(detail.orders)
+    ? detail.orders
+    : Array.isArray(customer.orders) ? customer.orders : [];
 
   const averageRating = customer.avg_rating ??
     (reviews.length
@@ -850,7 +850,24 @@ export function Refunds(){
       {error&&<p className="error">{error}</p>}
     </Panel>
 
-    {detail&&<Panel title="Refund investigation"><pre>{JSON.stringify(detail,null,2)}</pre></Panel>}
+    {detail&&<Panel title="Refund investigation">
+      {detail.error ? <p className="error">{detail.error}</p> : <>
+        <div className="metric-grid">
+          <Metric label="Refund amount" value={detail.amount!=null?money(detail.amount):'—'} caption={detail.currency||'Currency not recorded'} icon={Wallet}/>
+          <Metric label="Internal status" value={String(detail.status||'UNKNOWN').replace(/_/g,' ')} caption="MerchantOS record" icon={Activity}/>
+          <Metric label="PayPal status" value={detail.paypal_status||'Not provider-confirmed'} caption="Authoritative provider state" icon={ShieldCheck}/>
+          <Metric label="Provider refund ID" value={detail.paypal_refund_id||'Not recorded'} caption="Appears after provider response" icon={FileText}/>
+        </div>
+        <div className="form-grid">
+          <div><small className="muted">Refund reference</small><b>{detail.id||'—'}</b></div>
+          <div><small className="muted">Order reference</small><b>{detail.order_id||'—'}</b></div>
+          <div><small className="muted">Capture reference</small><b>{detail.capture_id||'Missing — execution blocked'}</b></div>
+          <div><small className="muted">Reason</small><b>{detail.reason||'Not recorded'}</b></div>
+          <div><small className="muted">Created</small><b>{detail.created_at?new Date(detail.created_at).toLocaleString():'—'}</b></div>
+        </div>
+        <div className="notice warning">A proposal is not a payment. Treat this refund as completed only after PayPal returns a final successful status and provider refund ID.</div>
+      </>}
+    </Panel>}
 
     <div className="notice warning">Never interpret a submitted or pending refund as completed. Confirm the authoritative PayPal status.</div>
   </>;
