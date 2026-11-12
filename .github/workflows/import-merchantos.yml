@@ -31,31 +31,25 @@ jobs:
           from pathlib import Path, PurePosixPath
 
           archive = Path("MerchantOS_COMPETITION_COMPLETED_BUILD.zip")
-          destination = Path(".")
+          temp = Path("/tmp/merchantos-import")
 
           if not archive.exists():
-              raise SystemExit("MerchantOS ZIP not found in repository root")
+              raise SystemExit("ZIP not found")
 
-          temp = Path("/tmp/merchantos-import")
           shutil.rmtree(temp, ignore_errors=True)
           temp.mkdir(parents=True)
 
           with zipfile.ZipFile(archive) as z:
               for item in z.infolist():
-                  path = PurePosixPath(item.filename)
-
-                  if path.is_absolute() or ".." in path.parts:
-                      raise SystemExit(f"Unsafe ZIP path: {item.filename}")
-
-                  if path.parts and path.parts[0] != "Merchant.Os-main":
-                      raise SystemExit(f"Unexpected ZIP root: {item.filename}")
-
+                  p = PurePosixPath(item.filename)
+                  if p.is_absolute() or ".." in p.parts:
+                      raise SystemExit(f"Unsafe path: {item.filename}")
               z.extractall(temp)
 
           source = temp / "Merchant.Os-main"
 
           if not source.is_dir():
-              raise SystemExit("Expected Merchant.Os-main folder not found")
+              raise SystemExit("Merchant.Os-main folder missing")
 
           excluded = {
               ".git", "node_modules", "__pycache__",
@@ -66,7 +60,13 @@ jobs:
               dirs[:] = [d for d in dirs if d not in excluded]
 
               relative = Path(current).relative_to(source)
-              target = destination / relative
+
+              # CRITICAL: Never overwrite or create GitHub workflows.
+              if relative.parts[:2] == (".github", "workflows"):
+                  dirs[:] = []
+                  continue
+
+              target = Path(".") / relative
               target.mkdir(parents=True, exist_ok=True)
 
               for filename in files:
@@ -79,10 +79,10 @@ jobs:
                   src = Path(current) / filename
                   dst = target / filename
 
-                  dst.parent.mkdir(parents=True, exist_ok=True)
                   shutil.copy2(src, dst)
 
-          print("MerchantOS files arranged successfully.")
+          print("MerchantOS extraction completed.")
+          print("GitHub Actions workflows preserved.")
           PY
 
       - name: Commit arranged files
@@ -96,5 +96,5 @@ jobs:
             echo "No changes to commit."
           else
             git commit -m "Import and arrange MerchantOS final build"
-            git push
+            git push origin HEAD
           fi
