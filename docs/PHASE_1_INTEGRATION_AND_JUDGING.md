@@ -29,7 +29,7 @@
 | Render | Durable verified-webhook processing | Render SDK task, webhook signature verification → sanitized payload → idempotent task dispatch → shared-secret callback, plus workflow Blueprint added | Workflow service released in Render; Sandbox webhook reaches `PROCESSED`; retry and duplicate-delivery evidence |
 | Postman | API collection and repeatable Sandbox verification | Collection added under `integrations/postman/` | Collection run export with passing requests against configured Sandbox |
 | AG Grid | Financial transaction ledger | Community React grid wired to `GET /api/transactions` with filtering, sorting and pagination; npm install/build pending | Frontend build passes; live API rows rendered and filters/pagination demonstrated |
-| Bryntum | Agent execution / milestone timeline | Scheduler Community React page wired to persisted `/api/audit` records; Bryntum MCP config added; npm install/build pending | Frontend build passes; real audit events displayed on timeline; MCP enabled in compatible coding agent |
+| Execution timeline | Operational audit timeline | Native React read-only timeline wired to persisted `/api/audit` records; no private scheduler package required | Frontend production build passes and real audit events are displayed |
 | Channel3 | Not core to complaint/refund intelligence; potential product catalog enrichment only if MerchantOS adds merchant-side catalog matching | Deliberately not integrated | Only add if a real catalog workflow is implemented and Channel3 API/MCP is actually called |
 | Elastic | Search over audit and operational events | Candidate for later observability phase | Indexed events, hybrid search and reproducible query demonstration |
 | Zapier | Optional notifications/approval handoff | Candidate only | Authenticated MCP workflow and end-to-end approval evidence |
@@ -91,7 +91,7 @@ The official Devpost judging criteria are five equally weighted categories. This
 - [ ] APIMatic Context Plugin installed and enabled in the developer's supported coding agent; a concrete schema-grounded change recorded.
 - [x] Render Workflows task and dispatch wiring added; external workflow release, secrets and PayPal webhook registration remain operator steps.
 - [x] AG Grid Community wired into the transaction ledger; frontend package install and build remain pending.
-- [x] Bryntum Scheduler Community wired into the audit timeline; frontend package install and build remain pending.
+- [x] Native React read-only audit timeline wired to persisted audit events; frontend production build remains a CI verification gate.
 - [ ] PayPal Sandbox app scopes enabled and new Invoicing / Transaction Search / Vault flows verified with real credentials.
 
 ## Official references

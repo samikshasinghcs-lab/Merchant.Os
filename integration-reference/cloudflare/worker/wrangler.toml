@@ -1,0 +1,11 @@
+name = "merchantos-financial-api"
+main = "src/index.ts"
+compatibility_date = "2026-11-12"
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "REPLACE_WITH_HYPERDRIVE_CONFIG_ID"
+
+[vars]
+JWT_ISSUER = "merchantos-api"
+JWT_AUDIENCE = "merchantos-client"

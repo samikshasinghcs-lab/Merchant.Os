@@ -1,0 +1,164 @@
+name: Import and Arrange MerchantOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - financial-lifecycle-integration
+    paths:
+      - "MerchantOS_COMPETITION_COMPLETED_BUILD.zip"
+      - ".github/workflows/import-merchantos.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: merchantos-import-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Extract and arrange MerchantOS
+        run: |
+          python - <<'PY'
+          import os
+          import zipfile
+          import shutil
+          from pathlib import Path, PurePosixPath
+
+          archive = Path("MerchantOS_COMPETITION_COMPLETED_BUILD.zip")
+          temp = Path("/tmp/merchantos-import")
+
+          if not archive.is_file():
+              raise SystemExit("ERROR: MerchantOS ZIP not found.")
+
+          shutil.rmtree(temp, ignore_errors=True)
+          temp.mkdir(parents=True)
+
+          with zipfile.ZipFile(archive) as z:
+              for item in z.infolist():
+                  p = PurePosixPath(item.filename)
+
+                  if p.is_absolute() or ".." in p.parts:
+                      raise SystemExit(
+                          f"Unsafe archive path: {item.filename}"
+                      )
+
+                  if item.file_size > 100 * 1024 * 1024:
+                      raise SystemExit(
+                          f"File too large: {item.filename}"
+                      )
+
+              z.extractall(temp)
+
+          source = temp / "Merchant.Os-main"
+
+          if not source.is_dir():
+              raise SystemExit(
+                  "ERROR: Merchant.Os-main folder missing in ZIP."
+              )
+
+          excluded_dirs = {
+              ".git",
+              "node_modules",
+              "__pycache__",
+              ".pytest_cache",
+              ".vite",
+              "dist",
+              "build"
+          }
+
+          copied = 0
+
+          for current, dirs, files in os.walk(source):
+              dirs[:] = sorted(
+                  d for d in dirs if d not in excluded_dirs
+              )
+
+              relative = Path(current).relative_to(source)
+
+              # Preserve existing GitHub Actions workflows.
+              if relative.parts[:2] == (".github", "workflows"):
+                  dirs[:] = []
+                  continue
+
+              target = Path(".") / relative
+              target.mkdir(parents=True, exist_ok=True)
+
+              for filename in files:
+                  if filename == ".env" or filename.startswith(".env."):
+                      continue
+
+                  if filename.endswith(
+                      (".pyc", ".pyo", ".db", ".sqlite", ".sqlite3")
+                  ):
+                      continue
+
+                  src = Path(current) / filename
+                  dst = target / filename
+
+                  dst.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(src, dst)
+                  copied += 1
+
+          if copied == 0:
+              raise SystemExit("ERROR: No project files were copied.")
+
+          print(f"SUCCESS: Arranged {copied} project files.")
+          print("Existing GitHub workflows preserved.")
+          PY
+
+      - name: Commit arranged files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Import and arrange MerchantOS final build"
+
+          echo "Synchronizing with latest branch..."
+
+          git fetch origin "$GITHUB_REF_NAME"
+
+          git rebase "origin/$GITHUB_REF_NAME"
+
+          echo "Pushing arranged project..."
+
+          git push origin "HEAD:$GITHUB_REF_NAME"
+
+          echo "SUCCESS: MerchantOS arranged and pushed."
+
+      - name: Verify repository structure
+        run: |
+          test -d app
+          test -d frontend
+          test -d tests
+          test -d alembic
+          test -d workflows
+
+          echo "Repository structure verification passed."

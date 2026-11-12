@@ -6,6 +6,7 @@ import {api,token} from './lib/api';
 import {Dashboard,Customers,Transactions,Refunds,Disputes,Agreements,Milestones,Reviews,Audit,Evidence,RootCause,Login} from './pages/Pages';
 import ExecutionTimeline from './pages/ExecutionTimeline';
 import FinancialLifecycle from './pages/FinancialLifecycle';
+import Proof from './pages/Proof';
 
 const nav=[['Overview','/',LayoutDashboard],['Customer intelligence','/customers',Users],['Review lab','/reviews',Search],['Transactions','/transactions',WalletCards],['Execution timeline','/execution',Workflow],['Refund investigations','/refunds',ArrowDownLeft],['Dispute center','/disputes',AlertTriangle],['Agreements','/agreements',FileText],['Milestones','/milestones',BriefcaseBusiness],['Evidence vault','/evidence',FileCheck2],['Root-cause intelligence','/root-cause',ChartNoAxesCombined],['Trust & audit','/audit',ShieldCheck]] as const;
 
@@ -58,10 +59,10 @@ const navGroups: {label:string;items:readonly NavItem[]}[] = [
     ['Overview','/',LayoutDashboard], ['Customer intelligence','/customers',Users], ['Review lab','/reviews',Search], ['Root-cause intelligence','/root-cause',ChartNoAxesCombined]
   ]},
   { label: 'FINANCIAL OPERATIONS', items: [
-    ['Transactions','/transactions',WalletCards], ['Financial lifecycle','/financial-lifecycle',Activity], ['Refund investigations','/refunds',ArrowDownLeft], ['Dispute center','/disputes',AlertTriangle], ['Evidence vault','/evidence',FileCheck2]
+    ['Transactions','/transactions',WalletCards], ['Refund investigations','/refunds',ArrowDownLeft], ['Dispute center','/disputes',AlertTriangle], ['Evidence vault','/evidence',FileCheck2]
   ]},
   { label: 'OPERATIONS & CONTROL', items: [
-    ['Execution timeline','/execution',Workflow], ['Agreements','/agreements',FileText], ['Milestones','/milestones',BriefcaseBusiness], ['Trust & audit','/audit',ShieldCheck]
+    ['Execution timeline','/execution',Workflow], ['Financial operations','/financial-operations',WalletCards], ['Proof & status','/proof',ShieldCheck], ['Agreements','/agreements',FileText], ['Milestones','/milestones',BriefcaseBusiness], ['Trust & audit','/audit',ShieldCheck]
   ]}
 ] as const;
 const allNav: NavItem[] = navGroups.flatMap(group => [...group.items]);
@@ -69,6 +70,7 @@ const allNav: NavItem[] = navGroups.flatMap(group => [...group.items]);
 export default function App(){
   const [authed,setAuthed]=useState(!!token());
   const [user,setUser]=useState<any>(null);
+  const [health,setHealth]=useState<any>(null);
   const [collapsed,setCollapsed]=useState(false);
   const [mobileOpen,setMobileOpen]=useState(false);
   const [showLogin,setShowLogin]=useState(false);
@@ -80,6 +82,7 @@ export default function App(){
   const currentPage=location.pathname==='/'?'Command center':(activeRoute?.[0]||'Merchant workspace');
   const currentSection=navGroups.find(group=>group.items.some(item=>item[1]===location.pathname))?.label||'WORKSPACE';
   useEffect(()=>{
+    api('/api/health').then(x=>setHealth(x)).catch(()=>setHealth(null));
     if(token()) api('/api/auth/me').then(x=>setUser(x)).catch(()=>{
       localStorage.removeItem('merchantos_token');setAuthed(false);
     });
@@ -129,10 +132,10 @@ export default function App(){
         <div className="topbar-title"><button className="mobile-menu-trigger" onClick={()=>setMobileOpen(true)} aria-label="Open navigation"><Menu size={19}/></button><div><span className="eyebrow">{currentSection} / MERCHANT WORKSPACE</span><h2>{currentPage}</h2></div></div>
         <div className="top-actions">
           <button className="global-search" onClick={()=>{setQuickOpen(true);setQuickQuery('');}} aria-label="Open quick navigation"><Search size={15}/><span>Find a workspace</span><kbd>⌘ K</kbd></button>
-          <span className="env"><i/> Pilot environment</span><div className="avatar top-avatar" aria-label={`Signed in as ${user?.name||'Merchant'}`}>{(user?.name||'M')[0].toUpperCase()}</div>
+          <span className="env"><i/> Sandbox / Demo data</span><div className="avatar top-avatar" aria-label={`Signed in as ${user?.name||'Merchant'}`}>{(user?.name||'M')[0].toUpperCase()}</div>
         </div>
       </header>
-      <div className="content"><Routes><Route path="/" element={<Dashboard/>}/><Route path="/customers" element={<Customers/>}/><Route path="/reviews" element={<Reviews/>}/><Route path="/root-cause" element={<RootCause/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/financial-lifecycle" element={<FinancialLifecycle/>}/><Route path="/execution" element={<ExecutionTimeline/>}/><Route path="/refunds" element={<Refunds/>}/><Route path="/disputes" element={<Disputes/>}/><Route path="/evidence" element={<Evidence/>}/><Route path="/agreements" element={<Agreements/>}/><Route path="/milestones" element={<Milestones/>}/><Route path="/audit" element={<Audit/>}/><Route path="*" element={<Dashboard/>}/></Routes></div>
+      <div className="global-pipeline" aria-label="Operational pipeline"><span>Reviews</span><b>→</b><span>AI</span><b>→</b><span>Grid</span><b>→</b><span>Approval</span><b>→</b><span>PayPal</span><b>→</b><span>Audit</span><a href="/proof" onClick={e=>{e.preventDefault();navTo('/proof')}}>Proof ↗</a><small>{health?.environment==='Sandbox'?'PayPal Sandbox · live money blocked':'PayPal environment unconfirmed'} · Render · {health?.commit||'commit unknown'} · {health?.uptime_seconds==null?'uptime unknown':`${health.uptime_seconds}s`} · AI: computed / llm when configured</small></div><div className="content"><Routes><Route path="/" element={<Dashboard/>}/><Route path="/customers" element={<Customers/>}/><Route path="/reviews" element={<Reviews/>}/><Route path="/root-cause" element={<RootCause/>}/><Route path="/transactions" element={<Transactions/>}/><Route path="/execution" element={<ExecutionTimeline/>}/><Route path="/financial-operations" element={<FinancialLifecycle/>}/><Route path="/proof" element={<Proof/>}/><Route path="/refunds" element={<Refunds/>}/><Route path="/disputes" element={<Disputes/>}/><Route path="/evidence" element={<Evidence/>}/><Route path="/agreements" element={<Agreements/>}/><Route path="/milestones" element={<Milestones/>}/><Route path="/audit" element={<Audit/>}/><Route path="*" element={<Dashboard/>}/></Routes></div>
     </main>
     {quickOpen&&<div className="quick-overlay" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setQuickOpen(false);}}><section className="quick-dialog" role="dialog" aria-modal="true" aria-labelledby="quick-title"><div className="quick-input-row"><Search size={18}/><label className="sr-only" id="quick-title" htmlFor="quick-search">Find a workspace</label><input id="quick-search" autoFocus placeholder="Search pages and workflows…" value={quickQuery} onChange={e=>setQuickQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&quickMatches[0]){navTo(quickMatches[0][1]);setQuickOpen(false);}}}/><kbd>ESC</kbd></div><div className="quick-results">{quickMatches.map(([label,path,Icon])=><button key={path} onClick={()=>{navTo(path);setQuickOpen(false);}}><Icon size={17}/><span>{label}</span><small>{path==='/'?'Overview':path}</small><ChevronRight size={14}/></button>)}{!quickMatches.length&&<p>No matching workspace pages.</p>}</div><footer><span><Keyboard size={13}/> Navigate with search</span><span>ENTER to open</span></footer></section></div>}
   </div>;

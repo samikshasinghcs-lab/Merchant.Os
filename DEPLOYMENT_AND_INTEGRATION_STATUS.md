@@ -6,6 +6,6 @@
 - Render Workflows: configure service and shared secret in Render; exercise real delivery, retries and idempotency before claiming operational status.
 - PayPal: Sandbox only. Configure credentials and webhook ID in backend secret storage. Verify signature validation and order/capture/refund/dispute flows with actual Sandbox events.
 - Cloudflare Hyperdrive: optional architecture guidance only; not configured or operational in this package.
-- Sponsor tools: AG Grid and Bryntum package dependencies are declared. APIMatic requires user-side activation. No sponsor integration is claimed operational without runtime evidence.
+- AG Grid Community is used in the financial cases workspace. The execution timeline uses native React (no private scheduler dependency). APIMatic requires user-side activation. No provider integration is claimed operational without runtime evidence.
 
 Do not expose a public API with demo auth settings, default secrets, or live payment execution enabled.

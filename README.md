@@ -102,7 +102,7 @@ Import `integrations/postman/MerchantOS-PayPal-Sandbox.postman_collection.json`.
 
 ## Sponsor tooling activation
 
-The project now includes source-level integrations for Render Workflows, AG Grid Community and Bryntum Scheduler Community. The APIMatic PayPal Context Plugin has a one-command activation script for supported coding-agent environments. See [`docs/SPONSOR_TOOL_ACTIVATION.md`](docs/SPONSOR_TOOL_ACTIVATION.md) for setup, required secrets, installation and verification. Cloud workflow release and local npm dependency installation must still be completed in an authenticated developer/deployment environment.
+The project includes source-level integrations for Render Workflows and AG Grid Community. The execution timeline is a native React view to keep the frontend build free of private scheduler packages. The APIMatic PayPal Context Plugin has a one-command activation script for supported coding-agent environments. Provider execution and deployment still require merchant-owned Sandbox credentials and Render configuration.
 
 ## Phase 3 — Deterministic financial controls
 

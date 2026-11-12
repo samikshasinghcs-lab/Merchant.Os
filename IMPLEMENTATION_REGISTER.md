@@ -13,7 +13,7 @@ Statuses distinguish source presence from runtime operation.
 | Full multi-tenant isolation | IN DEVELOPMENT | Do not enable multi-tenant onboarding until legacy cutover and two-tenant RLS tests pass. |
 | Prompt-injection boundary | IMPLEMENTED | Untrusted-content handling and focused regression tests present; broader adversarial review pending. |
 | Render workflow integration | IN DEVELOPMENT | Source/configuration present; hosted workflow runtime not verified. |
-| AG Grid / Bryntum | IMPLEMENTED | Dependencies declared; frontend build/runtime verification pending. |
+| AG Grid / execution timeline | IMPLEMENTED | AG Grid Community powers the financial cases grid; execution timeline is native React to avoid a private/licensed dependency. Frontend production build remains a CI gate. |
 | APIMatic | NOT STARTED / USER ACTIVATION REQUIRED | Activation script and instructions only; no successful activation evidence. |
 | Vercel frontend | IN DEVELOPMENT | Vite SPA configuration prepared; project/deployment not yet created. |
 | Production deployment | NOT STARTED | No deployment evidence in this package. |

@@ -34,8 +34,11 @@ def readiness_report() -> dict:
     check("demo_seed", not _truthy("SEED_DEMO_DATA"), "SEED_DEMO_DATA must be false; production must not be populated with sample merchant records.")
     check("paypal_environment", os.getenv("PAYPAL_MODE", "sandbox").lower() == "sandbox",
           "This release is Sandbox-only; live PayPal is not supported.")
-    check("financial_execution", not _truthy("PAYPAL_EXECUTION_ENABLED"),
-          "Direct financial execution must remain disabled in this release candidate.")
+    execution_enabled = _truthy("PAYPAL_EXECUTION_ENABLED")
+    sandbox_execution_ack = _truthy("MERCHANTOS_SANDBOX_REFUND_EXECUTION_ACK")
+    sandbox_execution_safe = (os.getenv("PAYPAL_MODE", "sandbox").lower() == "sandbox" and sandbox_execution_ack)
+    check("financial_execution", (not execution_enabled) or sandbox_execution_safe,
+          "Execution is disabled by default. If enabled for a competition demo, it is permitted only for PayPal Sandbox with MERCHANTOS_SANDBOX_REFUND_EXECUTION_ACK=true; the execution service independently rejects live mode.")
     db_url = os.getenv("DATABASE_URL", "")
     check("identity_database", db_url.startswith(("postgresql://", "postgresql+psycopg://", "postgres://")),
           "Production pilot identity database must be PostgreSQL.")
@@ -100,6 +103,6 @@ def readiness_report() -> dict:
         "ready": all(item["passed"] for item in checks),
         "environment": "production",
         "release_scope": "single-merchant, PayPal-Sandbox-only pilot; not multi-tenant SaaS",
-        "financial_execution": "disabled",
+        "financial_execution": "sandbox_only_enabled" if execution_enabled else "disabled",
         "checks": checks,
     }

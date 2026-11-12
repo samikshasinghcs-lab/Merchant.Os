@@ -103,8 +103,9 @@ th{position:sticky;top:0;z-index:1}
 .site-footer .footer-copy{color:#9aa794}
 @media(max-width:420px){.preview-top,.preview-live,.preview-disclaimer,.preview-caption{font-size:8px}.preview-main small{font-size:8px}.section-topline{font-size:9px}}
 
-/* Sponsor components: AG Grid Community ledger and Bryntum Scheduler Community timeline. */
-.ag-ledger{width:100%;min-width:0}.ag-ledger .ag-root-wrapper{border:1px solid #e4e9df;border-radius:5px;overflow:hidden}.ag-ledger .ag-header-cell-text{font-size:10px;font-weight:700;letter-spacing:.04em}.ag-ledger .ag-cell{font-size:11px}.bryntum-panel{overflow:hidden}.bryntum-timeline{height:430px;min-width:0}.bryntum-timeline .b-scheduler{height:100%}.bryntum-timeline .b-sch-event{border-radius:3px}.bryntum-timeline .b-grid-header{font-family:'DM Sans',sans-serif}@media(max-width:760px){.bryntum-timeline{height:520px}.ag-ledger{overflow-x:auto}}
+/* AG Grid and native read-only execution timeline. */
+.ag-ledger{width:100%;min-width:0}.ag-ledger .ag-root-wrapper{border:1px solid #e4e9df;border-radius:5px;overflow:hidden}.ag-ledger .ag-header-cell-text{font-size:10px;font-weight:700;letter-spacing:.04em}.ag-ledger .ag-cell{font-size:11px}
+.execution-timeline-panel{overflow:hidden}.execution-timeline{list-style:none;margin:0;padding:4px 0 4px 8px;display:grid;gap:0}.execution-timeline li{position:relative;display:grid;grid-template-columns:18px minmax(0,1fr);gap:12px;padding:0 0 20px}.execution-timeline li:not(:last-child)::before{content:"";position:absolute;left:7px;top:15px;bottom:-2px;width:2px;background:#e4e9ef}.execution-timeline-dot{position:relative;z-index:1;width:16px;height:16px;border-radius:50%;background:#718096;border:3px solid #edf1f5}.execution-timeline li.is-failed .execution-timeline-dot{background:#b42318}.execution-timeline li.is-completed .execution-timeline-dot{background:#23865b}.execution-timeline-content{min-width:0;border:1px solid #e8edf2;border-radius:9px;padding:12px}.execution-timeline-top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.execution-timeline-top b{font-size:11px}.execution-timeline-top time,.execution-timeline-content p,.execution-timeline-content small{font-size:10px;color:#8490a0}.execution-timeline-content p{margin:6px 0 0}.execution-timeline-content small{display:block;margin-top:5px;overflow-wrap:anywhere}@media(max-width:760px){.ag-ledger{overflow-x:auto}.execution-timeline-top{display:grid;gap:4px}}
 
 /* MerchantOS workspace — Impeccable Operate pass */
 :root{
@@ -430,3 +431,14 @@ body {
     flex-basis:calc(100% - 50px);
   }
 }
+
+/* MerchantOS final financial-operations shell */
+.global-pipeline{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:10px 24px;border-bottom:1px solid var(--border,#e5e7eb);background:var(--panel,#fff);font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--muted,#64748b)}
+.global-pipeline span{color:var(--text,#172033)}.global-pipeline b{color:#94a3b8}.global-pipeline a{margin-left:auto;color:var(--accent,#1d4ed8);text-decoration:none}.global-pipeline small{font-weight:600;color:#64748b}
+@media(max-width:680px){.global-pipeline{padding:9px 12px;gap:6px;font-size:10px}.global-pipeline small{width:100%}.global-pipeline a{margin-left:0}.financial-lifecycle{min-width:0}.financial-lifecycle .fl-form{grid-template-columns:minmax(0,1fr)}.financial-lifecycle .fl-card{min-width:0}.financial-lifecycle .fl-table{min-width:650px}}
+
+.fl-chip{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;background:#e8edf2;color:#1f2937;border:0;line-height:20px}
+.fl-chip-btn{cursor:pointer;margin:0 4px 4px 0}
+.fl-chip-open,.fl-chip-approve,.fl-chip-approved,.fl-chip-eligible{background:#dcfce7;color:#166534}
+.fl-chip-under,.fl-chip-hold,.fl-chip-unknown,.fl-chip-partial,.fl-chip-pending,.fl-chip-exchange,.fl-chip-review{background:#fef9c3;color:#854d0e}
+.fl-chip-rejected,.fl-chip-reject,.fl-chip-not{background:#fee2e2;color:#991b1b}

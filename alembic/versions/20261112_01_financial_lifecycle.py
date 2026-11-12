@@ -14,7 +14,10 @@ def upgrade():
     if bind.dialect.has_table(bind, "merchant_reviews") and "complaint_cluster_id" not in {c["name"] for c in inspect(bind).get_columns("merchant_reviews")}:
         op.add_column("merchant_reviews", __import__("sqlalchemy").Column("complaint_cluster_id", __import__("sqlalchemy").String(100), nullable=True))
     Base.metadata.create_all(bind=bind)
-    if bind.dialect.name!="postgresql": return
+    from app.audit_guards import install_append_only_audit_guards
+    install_append_only_audit_guards(bind)
+    if bind.dialect.name!="postgresql":
+        return
     for table in TABLES:
         op.execute(f'ALTER TABLE "{table}" ENABLE ROW LEVEL SECURITY')
         op.execute(f'ALTER TABLE "{table}" FORCE ROW LEVEL SECURITY')
@@ -22,9 +25,18 @@ def upgrade():
         op.execute(f"""CREATE POLICY merchantos_tenant_isolation ON "{table}"
           USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), ''))
           WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), ''))""")
+
 def downgrade():
     bind=op.get_bind()
     from sqlalchemy import inspect
+    for table in ("merchant_audit_events", "financial_lifecycle_events"):
+        if bind.dialect.name == "sqlite":
+            op.execute(f'DROP TRIGGER IF EXISTS {table}_no_update')
+            op.execute(f'DROP TRIGGER IF EXISTS {table}_no_delete')
+        elif bind.dialect.name == "postgresql" and inspect(bind).has_table(table):
+            op.execute(f'DROP TRIGGER IF EXISTS {table}_append_only ON "{table}"')
+    if bind.dialect.name == "postgresql":
+        op.execute('DROP FUNCTION IF EXISTS merchantos_reject_audit_mutation()')
     if bind.dialect.has_table(bind, "merchant_reviews") and "complaint_cluster_id" in {c["name"] for c in inspect(bind).get_columns("merchant_reviews")}:
         op.drop_column("merchant_reviews", "complaint_cluster_id")
     if bind.dialect.name!="postgresql": return

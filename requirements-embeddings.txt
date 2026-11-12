@@ -1,0 +1,3 @@
+# Optional local semantic embeddings. Install only when enabling
+# MERCHANTOS_LOCAL_EMBEDDINGS=true; TF-IDF is the default fallback.
+sentence-transformers>=3.0,<6
