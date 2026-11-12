@@ -260,8 +260,8 @@ export function Dashboard(){
         `${reviewRows.length} review records were examined; ${rated.length} have a valid 1–5 star rating.`,
         average===null?'No valid star ratings are available to calculate an average.':`Average recorded rating: ${average.toFixed(1)} / 5.`,
         `${low.length} reviews are rated 1–2 stars and need human review.`,
-        `Rating distribution: ${distribution.map(x=>`${x.stars}★ ${x.count}`).join(' · ')}.`,
-        themeCounts.length?`Text-matched themes: ${themeCounts.map(x=>`${x.name} (${x.count})`).join(', ')}.`:'No predefined issue themes matched the available review text.'
+        'Rating distribution: '+distribution.map(x=>x.stars+'★ '+x.count).join(' · ')+'.',
+        themeCounts.length?'Text-matched themes: '+themeCounts.map(x=>x.name+' ('+x.count+')').join(', ')+'.':'No predefined issue themes matched the available review text.'
       ];
       const next=[
         low.length?`Open and investigate the ${low.length} low-rated reviews; verify each against its order and evidence.`:'Continue monitoring incoming feedback; no 1–2 star reviews were returned.',
