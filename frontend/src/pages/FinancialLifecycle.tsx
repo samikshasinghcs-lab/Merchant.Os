@@ -61,11 +61,11 @@ function Field({
 export default function FinancialLifecycle() {
   const [overview, setOverview] = useState<AnyRecord | null>(null);
   const [cases, setCases] = useState<AnyRecord[]>([]);
-  const [intel, setIntel] = useState<AnyRecord | null>(null);
+  const [intel, setIntel] = useState<AnyRecord>({});
   const [recon, setRecon] = useState<AnyRecord | null>(null);
   const [clusters, setClusters] = useState<AnyRecord | null>(null);
   const [orders, setOrders] = useState<AnyRecord[]>([]);
-  const [selected, setSelected] = useState<AnyRecord | null>(null);
+  const [selected, setSelected] = useState<AnyRecord | undefined>(undefined);
   const [form, setForm] = useState(blankCase);
   const [quickSearch, setQuickSearch] = useState('');
   const [message, setMessage] = useState('');
@@ -279,7 +279,7 @@ export default function FinancialLifecycle() {
               quickFilterText={quickSearch}
               defaultColDef={{ sortable: true, filter: true, resizable: true, floatingFilter: true }}
               rowSelection={{ mode: 'singleRow' }}
-              onRowClicked={(event: RowClickedEvent<AnyRecord>) => setSelected(event.data ?? null)}
+              onRowClicked={(event: RowClickedEvent<AnyRecord>) => setSelected(event.data)}
               animateRows
             />
           </div>
@@ -316,8 +316,7 @@ export default function FinancialLifecycle() {
     </main>
   );
 }
-
-type InvestigationProps = {
+      type InvestigationProps = {
   selected: AnyRecord;
   onRefresh: () => Promise<void>;
   onMessage: (value: string) => void;
