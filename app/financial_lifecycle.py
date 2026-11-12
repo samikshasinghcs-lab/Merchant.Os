@@ -304,7 +304,7 @@ def create_refund_approval_from_case(case_id:str,p=Depends(principal)):
 def add_disposition(case_id:str,body:dict,p=Depends(principal)):
     role(p,{"OWNER","ADMIN","OPERATOR"})
     disposition=str(body.get("disposition","")).upper()
-    allowed={"RESTOCK","INSPECT","REPAIR","REPACKAGE","DISCOUNT_RESALE","QUARANTINE","DISPOSE","WRITE_OFF"}
+    allowed={"RESTOCK","OPEN_BOX","REFURBISH","RETURN_TO_SUPPLIER","WRITE_OFF","INSPECT","REPAIR","REPACKAGE","DISCOUNT_RESALE","QUARANTINE","DISPOSE"}
     if disposition not in allowed: raise HTTPException(400,"Unsupported disposition")
     qty=int(body.get("quantity",1))
     if qty<1 or qty>100000: raise HTTPException(400,"quantity must be between 1 and 100000")
@@ -687,6 +687,7 @@ def case_detail(case_id: str, p=Depends(principal)):
         case_events=s.scalars(select(FinancialEvent).where(FinancialEvent.tenant_id==t,FinancialEvent.case_id==case_id).order_by(FinancialEvent.created_at.desc()).limit(100)).all()
         evidence_ids=[str(ev.payload.get("evidence_id")) for ev in case_events if ev.event_type=="EVIDENCE_UPLOADED" and ev.payload.get("evidence_id")]
         evidence=s.scalars(select(TenantEvidence).where(TenantEvidence.tenant_id==t,TenantEvidence.id.in_(evidence_ids)).order_by(TenantEvidence.created_at.desc())).all() if evidence_ids else []
+        dispositions=s.scalars(select(InventoryDisposition).where(InventoryDisposition.tenant_id==t,InventoryDisposition.case_id==case_id).order_by(InventoryDisposition.created_at.desc())).all()
         cost=s.scalar(select(OrderCost).where(OrderCost.tenant_id==t,OrderCost.order_id==case.order_id))
         related=s.scalars(select(ResolutionCase).where(ResolutionCase.tenant_id==t,ResolutionCase.order_id!=case.order_id)).all()
         same_batch=0; repeat_count=0
@@ -729,6 +730,7 @@ def case_detail(case_id: str, p=Depends(principal)):
             "complaints":[{"id":r.id,"message":r.text,"category":r.category,"severity":r.severity,"created_at":r.created_at.isoformat() if r.created_at else None} for r in reviews],
             "evidence":[{"id":e.id,"type":e.evidence_type,"description":e.description,"sha256":e.sha256,"integrity_status":e.integrity_status,"download_url":f"/api/v1/financial-lifecycle/evidence/{e.id}/download" if e.storage_key else None,"created_at":e.created_at.isoformat() if e.created_at else None} for e in evidence],
             "costs":({k:str(getattr(cost,k) or 0) for k in ("cogs","shipping_out","payment_fee","packaging","other_cost")} if cost else None),
+            "dispositions":[{"id":d.id,"sku":d.sku,"quantity":d.quantity,"disposition":d.disposition,"estimated_recovery":str(d.estimated_recovery),"realized_recovery":str(d.realized_recovery) if d.realized_recovery is not None else None,"warehouse_reference":d.warehouse_reference,"note":d.note,"created_at":d.created_at.isoformat() if d.created_at else None} for d in dispositions],
             "signals":{"repeat_returner_case_count":repeat_count,"other_cases_same_batch":same_batch,"flags":flags},
             "computed_recommendation":(lambda llm:{"recommendation":(llm["recommendation"] if llm and recommendation not in {"HOLD_FOR_EVIDENCE","REJECT"} else recommendation),"mode":("llm_validated" if llm else "computed"),"model":(llm["model"] if llm else "computed_rules"),"confidence_label":"signal agreement (rule checks passed) — not a calibrated probability","signal_strength":strength,"checks_passed":f"{passed}/{len(checks)}","reasons":reasons+((["LLM: "+x for x in llm["reasons"]]) if llm else []),"expected_loss_estimates":expected,"expected_loss_math":[f"approve = estimated loss - recoverable inventory = {estimate} - {recovery} = {expected['approve']}",f"reject = estimated loss retained = {expected['reject']} (chargeback/dispute risk not modelled)",f"exchange = max(0, estimated loss - recoverable inventory) = {expected['exchange']}","All inputs are merchant-entered estimates."],"llm_advice":llm,"computed_recommendation":recommendation,"policy_result":policy_result,"validation":"Deterministic checks validate; an LLM cannot override HOLD_FOR_EVIDENCE or REJECT. Humans authorize; AI never moves money.","accuracy_claim":None})(_llm_advice({"case_type":case.case_type,"flags":flags,"evidence_count":len(evidence),"policy_result":policy_result,"repeat_cases":repeat_count,"same_batch_cases":same_batch,"requested_amount_vs_paid_ratio":str((amount/Decimal(str(order.amount))).quantize(Decimal("0.01"))) if Decimal(str(order.amount)) else None})),
             "events":[{"id":e.id,"type":e.event_type,"payload":e.payload,"created_at":e.created_at.isoformat() if e.created_at else None} for e in events],
