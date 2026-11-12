@@ -1,11 +1,12 @@
 import {useEffect,useState} from 'react';
+import type {CSSProperties} from 'react';
 import {useLocation} from 'react-router-dom';
 import {api} from '../lib/api';
 
 type Product={id:string;name:string;description?:string;amount:string;currency:string};
 type Checkout={merchant_order_id:string;approval_url:string;access_token:string;amount:string;currency:string};
 
-const box:React.CSSProperties={maxWidth:760,margin:'32px auto',padding:24,border:'1px solid #dbe2ea',borderRadius:18,background:'#fff',color:'#172033'};
+const box:CSSProperties={maxWidth:760,margin:'32px auto',padding:24,border:'1px solid #dbe2ea',borderRadius:18,background:'#fff',color:'#172033'};
 const field:React.CSSProperties={display:'grid',gap:6,margin:'12px 0',fontSize:13,fontWeight:650};
 const input:React.CSSProperties={padding:12,border:'1px solid #cbd5e1',borderRadius:9,width:'100%',boxSizing:'border-box'};
 const button:React.CSSProperties={padding:'12px 16px',border:0,borderRadius:9,background:'#172554',color:'#fff',fontWeight:750,cursor:'pointer'};
