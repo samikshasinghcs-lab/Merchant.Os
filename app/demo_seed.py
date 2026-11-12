@@ -328,6 +328,112 @@ def seed_tenant_demo_data(tenant_id: str, actor_user_id: str | None = None) -> d
     }
 
 
+@router.get("/graph")
+def demo_customer_order_graph(p=Depends(identity.current_principal)):
+    """Return a tenant-filtered connected view of demo customers and order lifecycle records."""
+    if not identity.AUTH_AVAILABLE:
+        raise HTTPException(503, "Identity dependencies unavailable")
+    tenant_id = p["tenant_id"]
+    with tenant_session(tenant_id) as session:
+        customers = session.scalars(select(DemoCustomerProfile).where(
+            DemoCustomerProfile.tenant_id == tenant_id
+        ).order_by(DemoCustomerProfile.display_name)).all()
+        orders = session.scalars(select(TenantOrder).where(
+            TenantOrder.tenant_id == tenant_id
+        ).order_by(TenantOrder.created_at)).all()
+        reviews = session.scalars(select(TenantReview).where(
+            TenantReview.tenant_id == tenant_id
+        )).all()
+        refunds = session.scalars(select(TenantRefund).where(
+            TenantRefund.tenant_id == tenant_id
+        )).all()
+        disputes = session.scalars(select(TenantDispute).where(
+            TenantDispute.tenant_id == tenant_id
+        )).all()
+        evidence = session.scalars(select(TenantEvidence).where(
+            TenantEvidence.tenant_id == tenant_id
+        )).all()
+        cases = session.scalars(select(ResolutionCase).where(
+            ResolutionCase.tenant_id == tenant_id
+        )).all()
+
+        reviews_by_order = {}
+        for row in reviews:
+            reviews_by_order.setdefault(row.order_id, []).append({
+                "id": row.id, "rating": row.rating, "category": row.category,
+                "severity": row.severity, "text": row.text,
+                "complaint_cluster_id": row.complaint_cluster_id,
+            })
+        refunds_by_order = {}
+        for row in refunds:
+            refunds_by_order.setdefault(row.order_id, []).append({
+                "id": row.id, "status": row.status, "amount": str(row.amount),
+                "currency": row.currency, "provider_action": "NONE",
+            })
+        disputes_by_order = {}
+        for row in disputes:
+            disputes_by_order.setdefault(row.order_id, []).append({
+                "id": row.id, "status": row.status, "reason": row.reason,
+                "provider_dispute": False,
+            })
+        evidence_by_order = {}
+        for row in evidence:
+            evidence_by_order.setdefault(row.order_id, []).append({
+                "id": row.id, "type": row.evidence_type,
+                "integrity_status": row.integrity_status,
+            })
+        cases_by_order = {}
+        for row in cases:
+            cases_by_order.setdefault(row.order_id, []).append({
+                "id": row.id, "case_type": row.case_type, "status": row.status,
+                "requested_amount": str(row.requested_amount),
+                "complaint_cluster_id": row.complaint_cluster_id,
+            })
+        orders_by_customer = {}
+        for row in orders:
+            orders_by_customer.setdefault(row.customer_id, []).append({
+                "id": row.id, "product": row.product, "batch": row.batch,
+                "amount": str(row.amount), "currency": row.currency,
+                "payment_status": row.payment_status,
+                "created_at": row.created_at.isoformat(),
+                "reviews": reviews_by_order.get(row.id, []),
+                "refund_proposals": refunds_by_order.get(row.id, []),
+                "disputes": disputes_by_order.get(row.id, []),
+                "evidence": evidence_by_order.get(row.id, []),
+                "financial_cases": cases_by_order.get(row.id, []),
+            })
+        return {
+            "source": DEMO_LABEL,
+            "tenant_scope": "authenticated_tenant_only",
+            "customers": [{
+                "customer_id": row.customer_id, "name": row.display_name,
+                "city": row.city, "segment": row.segment,
+                "order_count": row.order_count,
+                "lifetime_value": str(row.lifetime_value),
+                "currency": "INR",
+                "orders": orders_by_customer.get(row.customer_id, []),
+            } for row in customers],
+        }
+
+
+@router.get("/product-batches")
+def demo_product_batch_insights(p=Depends(identity.current_principal)):
+    if not identity.AUTH_AVAILABLE:
+        raise HTTPException(503, "Identity dependencies unavailable")
+    tenant_id = p["tenant_id"]
+    with tenant_session(tenant_id) as session:
+        rows = session.scalars(select(DemoProductBatchInsight).where(
+            DemoProductBatchInsight.tenant_id == tenant_id
+        ).order_by(DemoProductBatchInsight.product_name)).all()
+        return [{
+            "product": row.product_name, "sku": row.sku, "batch": row.batch,
+            "units_sold": row.units_sold, "complaint_count": row.complaint_count,
+            "damage_count": row.damage_count, "leak_count": row.leak_count,
+            "average_rating": str(row.average_rating), "risk_level": row.risk_level,
+            "signals": row.signals, "source": row.source_label,
+        } for row in rows]
+
+
 def _principal(p=Depends(identity.current_principal)):
     if not identity.AUTH_AVAILABLE:
         raise HTTPException(503, "Identity dependencies unavailable")
