@@ -45,6 +45,7 @@ _configured_origins = [x.strip().rstrip("/") for x in os.getenv("CORS_ORIGINS", 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_configured_origins + [
+        "https://merchantos-web.vercel.app",
         "https://merchantos-web-vexora-b9e7.vercel.app",
         "https://merchantos-694snqkz9-vexora-b9e7.vercel.app",
     ],
