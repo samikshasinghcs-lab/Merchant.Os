@@ -369,8 +369,53 @@ def tenant_dashboard(p=Depends(principal)):
             'disputes': sum(1 for x in disputes if x.status in {'OPEN', 'ILLUSTRATIVE_OPEN'}),
             'refund_count': len(refunds),
             'refund_totals': refund_totals,
-            'refund_total': sum(refund_totals.values()),
+            'refund_total': next(iter(refund_totals.values())) if len(refund_totals) == 1 else None,
             'demo': any(x.id.startswith('demo-') for x in orders),
             'source': 'TENANT_SCOPED_RECORDS',
+        }
+
+@router.get('/refunds/{refund_id}')
+def tenant_refund_detail(refund_id: str, p=Depends(principal)):
+    with tenant_session(p['tenant_id']) as s:
+        row = s.scalar(select(TenantRefund).where(
+            TenantRefund.id == refund_id, TenantRefund.tenant_id == p['tenant_id']
+        ))
+        if not row:
+            raise HTTPException(404, 'Refund record not found')
+        return {
+            'id': row.id, 'order_id': row.order_id, 'capture_id': row.capture_id,
+            'amount': str(row.amount), 'currency': row.currency,
+            'reason': row.reason, 'status': row.status,
+            'paypal_refund_id': row.paypal_refund_id,
+            'paypal_status': row.paypal_status,
+            'created_at': row.created_at.isoformat(),
+            'source': 'ILLUSTRATIVE_SYNTHETIC' if row.id.startswith('demo-') else 'TENANT_RECORD',
+            'provider_action': 'NONE',
+        }
+
+
+@router.get('/disputes/{dispute_id}')
+def tenant_dispute_detail(dispute_id: str, p=Depends(principal)):
+    with tenant_session(p['tenant_id']) as s:
+        row = s.scalar(select(TenantDispute).where(
+            TenantDispute.id == dispute_id, TenantDispute.tenant_id == p['tenant_id']
+        ))
+        if not row:
+            raise HTTPException(404, 'Dispute record not found')
+        evidence = s.scalars(select(TenantEvidence).where(
+            TenantEvidence.tenant_id == p['tenant_id'],
+            TenantEvidence.order_id == row.order_id,
+        )).all()
+        return {
+            'id': row.id, 'order_id': row.order_id, 'reason': row.reason,
+            'status': row.status, 'customer_message': row.customer_message,
+            'evidence': row.evidence,
+            'evidence_records': [{
+                'id': x.id, 'evidence_type': x.evidence_type,
+                'description': x.description, 'integrity_status': x.integrity_status,
+            } for x in evidence],
+            'source': 'ILLUSTRATIVE_SYNTHETIC' if row.id.startswith('demo-') else 'TENANT_RECORD',
+            'provider_case_id': None,
+            'provider_submission': 'NOT_SUBMITTED',
         }
 
