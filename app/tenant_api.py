@@ -520,7 +520,7 @@ async def tenant_upload_evidence(
     mime = (file.content_type or '').lower()
     signatures = {
         'image/jpeg': b'\\xff\\xd8\\xff',
-        'image/png': b'\\x89PNG\\r\\n\\x1a\\n',
+        'image/png': b'\\x89PNG\r\n\x1a\\n',
         'application/pdf': b'%PDF-',
     }
     if mime not in signatures:
