@@ -1290,3 +1290,45 @@ export function Audit() {
     </>
   );
         }
+
+/* TENANT ROOT-CAUSE INTELLIGENCE */
+
+export function RootCause(){
+  const {data,error,busy,refresh}=useLoad<Any>('/api/v1/domain/root-cause');
+  const findings=Array.isArray(data?.findings)?data.findings:[];
+
+  return <>
+    <Heading
+      title="Root-cause intelligence"
+      sub="Explore complaint patterns linked to products, batches and merchant cases."
+      action={<button className="secondary" onClick={refresh}><RefreshCw size={14}/> Refresh</button>}
+    />
+    {error&&<div className="error">{error}</div>}
+    <div className="notice warning">
+      These are tenant-scoped descriptive signals. Correlation does not establish a manufacturing or operational cause.
+    </div>
+    <Panel title="Batch and product signals" extra={<span className="muted">{findings.length} findings</span>}>
+      {busy
+        ? <p className="muted">Loading tenant intelligence…</p>
+        : findings.length
+          ? <div className="insight-list">
+              {findings.map((item:any,index:number)=>(
+                <article className="insight" key={item.batch||item.id||index}>
+                  <span className="insight-icon"><Activity size={17}/></span>
+                  <div>
+                    <b>{item.title||item.category||'Operational signal'}</b>
+                    <p>{item.summary||'No explanatory detail was returned.'}</p>
+                    {item.products?.length>0&&<p>Products: {item.products.join(', ')}</p>}
+                    <small className="muted">{item.interpretation||'Exploratory association only.'}</small>
+                  </div>
+                  <strong>{item.complaints??0} / {item.batch||'—'}</strong>
+                </article>
+              ))}
+            </div>
+          : <div className="empty-state"><b>No complaint concentration detected</b><p>Linked reviews and case records will appear here as they are added.</p></div>
+      }
+    </Panel>
+    {data?.limitations&&<p className="muted">{data.limitations}</p>}
+  </>;
+}
+
