@@ -95,11 +95,23 @@ def _oauth(client_id: str, client_secret: str, environment: str) -> str:
 def _connection(tenant_id: str):
     with tenant_session(tenant_id) as s:
         row = s.scalar(select(TenantPayPalConnection).where(TenantPayPalConnection.tenant_id == tenant_id))
-        if not row:
-            raise HTTPException(404, "No PayPal connection exists for this workspace.")
-        return {"client_id": _decrypt(row.client_id_enc), "client_secret": _decrypt(row.client_secret_enc),
-                "environment": row.environment, "connected_at": row.connected_at.isoformat(),
-                "last_sync_at": row.last_sync_at.isoformat() if row.last_sync_at else None}
+        if row:
+            return {"client_id": _decrypt(row.client_id_enc), "client_secret": _decrypt(row.client_secret_enc),
+                    "environment": row.environment, "connected_at": row.connected_at.isoformat(),
+                    "last_sync_at": row.last_sync_at.isoformat() if row.last_sync_at else None}
+    # Compatibility bridge: Financial Operations historically stored the merchant's
+    # validated credentials in MerchantPayPalCredential. Reuse that encrypted
+    # tenant-scoped record so Storefront checkout works without asking merchants
+    # to reconnect the same PayPal app in a second screen.
+    try:
+        from .tenant_operations import get_paypal_credentials
+        legacy = get_paypal_credentials(tenant_id, "sandbox")
+    except Exception:
+        legacy = None
+    if legacy:
+        return {"client_id": legacy["client_id"], "client_secret": legacy["client_secret"],
+                "environment": "sandbox", "connected_at": None, "last_sync_at": None}
+    raise HTTPException(404, "No PayPal Sandbox connection exists for this workspace. Connect it in PayPal or Financial Operations settings.")
 
 @router.get("/status")
 def status(p=Depends(_principal)):
