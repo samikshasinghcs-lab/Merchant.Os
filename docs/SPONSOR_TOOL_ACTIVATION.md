@@ -36,11 +36,9 @@ render workflows tasks list --local
 
 The transaction ledger now uses `ag-grid-react` + `ag-grid-community` Community modules, backed by `GET /api/transactions`. It has filtering, sorting, pagination and no Enterprise-only feature dependency. Install via `cd frontend && npm install`.
 
-## 4. Bryntum Scheduler Community
+## 4. Scheduler timeline (superseded)
 
-The execution timeline now uses `@bryntum/scheduler-react-community` and the Community Scheduler package. It maps persisted audit rows from `GET /api/audit` to read-only timeline markers; it does not fabricate agent thoughts or claim provider execution. Community is MIT-licensed and requires no license key.
-
-The project includes `.mcp.json` registering AG Grid's `ag-mcp` stdio server and Bryntum's official remote documentation MCP endpoint for compatible coding agents. Restart the coding agent after opening the repository and verify both servers are enabled.
+The previous Bryntum-based timeline has been replaced with a native React read-only audit timeline. No Bryntum package, license, or MCP server is required. `.mcp.json` retains only the AG Grid MCP registration.
 
 Install frontend dependencies with `cd frontend && npm install`, then run `npm run typecheck && npm run build`.
 
@@ -50,10 +48,10 @@ Install frontend dependencies with `cd frontend && npm install`, then run `npm r
 |---|---|---|
 | APIMatic | Activation script and exact PayPal Context Plugin install command | Run script in a supported IDE environment; reload and verify plugin enabled |
 | AG Grid MCP | `.mcp.json` registers `npx ag-mcp` for version-aware grid documentation | Install dependencies on first launch if prompted; verify `ag-mcp` is enabled |
-| Bryntum MCP | `.mcp.json` registers `https://mcp.bryntum.com` | Verify remote server enabled in compatible coding agent |
+| Native execution timeline | React component renders persisted audit rows | Included in frontend syntax and build checks |
 | Render Workflows | SDK dependency, workflow task, verified webhook dispatch, callback, Blueprint | Deploy/release workflow, set secrets, register PayPal Sandbox webhook |
 | AG Grid | React Community ledger component and package pins | Install npm packages and run frontend build |
-| Bryntum | Scheduler Community timeline, styles, package pins, MCP config | Install npm packages and run frontend build; enable MCP in compatible IDE |
+| Execution timeline | Native React audit timeline | Run frontend build in GitHub Actions |
 
 ## Safety and privacy
 

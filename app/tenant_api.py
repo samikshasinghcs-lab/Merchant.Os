@@ -17,7 +17,7 @@ def principal(p=Depends(identity.current_principal)):
 @router.get('/orders')
 def orders(p=Depends(principal)):
     with tenant_session(p['tenant_id']) as s:
-        return [{'id':x.id,'customer_id':x.customer_id,'customer_name':x.customer_name,'product':x.product,'amount':str(x.amount),'currency':x.currency,'payment_status':x.payment_status,'created_at':x.created_at.isoformat()} for x in s.scalars(select(TenantOrder).where(TenantOrder.tenant_id==p['tenant_id']).order_by(TenantOrder.created_at.desc()).limit(500))]
+        return [{'id':x.id,'customer_id':x.customer_id,'customer_name':x.customer_name,'product':x.product,'batch':x.batch,'amount':str(x.amount),'currency':x.currency,'payment_status':x.payment_status,'created_at':x.created_at.isoformat()} for x in s.scalars(select(TenantOrder).where(TenantOrder.tenant_id==p['tenant_id']).order_by(TenantOrder.created_at.desc()).limit(500))]
 
 @router.post('/orders')
 def create_order(body: TenantOrderCreate, p=Depends(principal)):

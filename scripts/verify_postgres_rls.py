@@ -11,6 +11,9 @@ TABLES = (
     'paypal_webhook_events', 'paypal_webhook_routes', 'event_execution_traces',
     'pact_party_approvals', 'merchant_invitations', 'financial_approval_requests',
     'financial_executions',
+    'financial_order_costs', 'financial_resolution_cases',
+    'financial_inventory_dispositions', 'financial_journal_entries',
+    'financial_lifecycle_events',
 )
 
 

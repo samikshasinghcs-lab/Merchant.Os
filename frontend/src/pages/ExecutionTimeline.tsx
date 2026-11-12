@@ -1,26 +1,38 @@
-import { useMemo } from 'react';
-import { BryntumScheduler } from '@bryntum/scheduler-react-community';
-import { api } from '../lib/api';
 import { useEffect, useState } from 'react';
-import '@bryntum/scheduler-community/scheduler.css';
-import '@bryntum/scheduler-community/svalbard.css';
+import { api } from '../lib/api';
 
-type AuditRow = { id:number; event:string; actor:string; entity:string; detail:string; created_at:string };
+type AuditRow = { id: number | string; event: string; actor: string; entity: string; detail: string; created_at: string };
 
+/** Lightweight native timeline: avoids a licensed/private scheduler dependency. */
 export default function ExecutionTimeline(){
   const [rows,setRows]=useState<AuditRow[]>([]);
   const [error,setError]=useState('');
   const [busy,setBusy]=useState(true);
-  const load=()=>{setBusy(true);api<AuditRow[]>('/api/audit').then(setRows).catch((e:any)=>setError(e.message)).finally(()=>setBusy(false));};
+  const load=()=>{
+    setBusy(true);setError('');
+    api<AuditRow[]>('/api/audit')
+      .then(data=>setRows(Array.isArray(data)?data:[]))
+      .catch((e:any)=>setError(e.message||'Could not load audit events'))
+      .finally(()=>setBusy(false));
+  };
   useEffect(()=>{load();const timer=window.setInterval(load,15000);return()=>window.clearInterval(timer);},[]);
-  const schedulerProps=useMemo(()=>{
-    const valid=rows.map((r)=>({...r,when:new Date(r.created_at)})).filter((r)=>!Number.isNaN(r.when.getTime()));
-    const actors=Array.from(new Set(valid.map(r=>r.actor||'system')));
-    const resources=actors.map((name)=>({id:name,name:name.toUpperCase()}));
-    const events=valid.map((r)=>({id:String(r.id),resourceId:r.actor||'system',name:(r.event||'EVENT').replaceAll('_',' '),startDate:r.when,endDate:new Date(r.when.getTime()+15*60*1000),eventColor:(r.event||'').includes('FAILED')?'red':(r.event||'').includes('COMPLETED')?'green':'blue',tooltip:`${r.event} · ${r.entity||'system'} · ${r.detail||''}`}));
-    const start=valid.length?new Date(Math.min(...valid.map(r=>r.when.getTime()))):new Date(Date.now()-86400000);
-    const end=valid.length?new Date(Math.max(...valid.map(r=>r.when.getTime()))+86400000):new Date(Date.now()+86400000);
-    return {startDate:start,endDate:end,viewPreset:'hourAndDay',rowHeight:48,barMargin:7,columns:[{text:'Execution stream',field:'name',width:190}],resources,events,readOnly:true};
-  },[rows]);
-  return <section className="page"><div className="page-heading"><div><h1>Execution timeline</h1><p>Chronological operational events mapped into a resource timeline. Refreshes every 15 seconds.</p></div><button className="secondary" onClick={load}>Refresh</button></div>{error&&<div className="error">{error}</div>}{busy&&<p className="muted">Loading audit events…</p>}{!busy&&!rows.length&&!error&&<div className="panel"><p className="muted">No audit events have been recorded yet.</p></div>}<div className="panel bryntum-panel"><div className="panel-head"><h3>MerchantOS operational event stream</h3><span className="muted">{rows.length} audit events · Bryntum Scheduler Community</span></div><div className="bryntum-timeline"><BryntumScheduler {...schedulerProps}/></div></div><p className="muted">This view displays persisted audit events, not model private reasoning. Event bars are visualized as 15-minute markers; source timestamps remain unchanged.</p></section>;
+  return <section className="page">
+    <div className="page-heading"><div><h1>Execution timeline</h1><p>Chronological operational events from the persisted audit stream. Refreshes every 15 seconds.</p></div><button className="secondary" onClick={load} disabled={busy}>Refresh</button></div>
+    {error&&<div className="error" role="alert">{error}</div>}
+    {busy&&<p className="muted">Loading audit events…</p>}
+    {!busy&&!rows.length&&!error&&<div className="panel"><p className="muted">No audit events have been recorded yet.</p></div>}
+    <div className="panel execution-timeline-panel"><div className="panel-head"><h3>MerchantOS operational event stream</h3><span className="muted">{rows.length} audit events · read-only</span></div>
+      <ol className="execution-timeline">{rows.map((row)=>{
+        const failed=(row.event||'').includes('FAILED');
+        const completed=(row.event||'').includes('COMPLETED');
+        return <li key={String(row.id)} className={failed?'is-failed':completed?'is-completed':''}>
+          <span className="execution-timeline-dot" aria-hidden="true"/>
+          <div className="execution-timeline-content"><div className="execution-timeline-top"><b>{(row.event||'EVENT').replaceAll('_',' ')}</b><time dateTime={row.created_at}>{row.created_at?new Date(row.created_at).toLocaleString():'Time unavailable'}</time></div>
+            <p>{row.entity||'system'} · {row.actor||'system'}</p>{row.detail&&<small>{row.detail}</small>}
+          </div>
+        </li>;
+      })}</ol>
+    </div>
+    <p className="muted">This view displays persisted audit events, not model private reasoning. Event timestamps are shown as recorded by the source service.</p>
+  </section>;
 }

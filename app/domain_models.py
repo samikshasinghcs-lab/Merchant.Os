@@ -26,6 +26,9 @@ class TenantOrder(Base):
     capture_id: Mapped[str|None] = mapped_column(String(100))
     payment_status: Mapped[str] = mapped_column(String(30), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, nullable=False)
+    delivered_at: Mapped[datetime|None] = mapped_column(DateTime(timezone=True), nullable=True)
+    shipped_at: Mapped[datetime|None] = mapped_column(DateTime(timezone=True), nullable=True)
+    hygiene_item: Mapped[bool|None] = mapped_column(Boolean, nullable=True)
 
 class TenantReview(Base):
     __tablename__='merchant_reviews'
@@ -35,7 +38,8 @@ class TenantReview(Base):
     customer_id: Mapped[str|None]=mapped_column(String(100)); customer_name: Mapped[str|None]=mapped_column(String(200))
     order_id: Mapped[str|None]=mapped_column(String(100)); product: Mapped[str|None]=mapped_column(String(300))
     rating: Mapped[int|None]=mapped_column(Integer); text: Mapped[str]=mapped_column(Text,nullable=False)
-    category: Mapped[str|None]=mapped_column(String(100)); severity: Mapped[str|None]=mapped_column(String(30)); complaint_cluster_id: Mapped[str|None]=mapped_column(String(100),index=True)
+    category: Mapped[str|None]=mapped_column(String(100)); severity: Mapped[str|None]=mapped_column(String(30))
+    complaint_cluster_id: Mapped[str|None]=mapped_column(String(100),nullable=True)
     created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now_utc,nullable=False)
 
 class TenantRefund(Base):

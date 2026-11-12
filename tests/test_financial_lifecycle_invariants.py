@@ -25,3 +25,19 @@ def test_captured_or_fulfilled_orders_are_not_cancellable(status):
 def test_inventory_instruction_does_not_mutate_stock():
     result={"disposition":"RESTOCK","inventory_mutated":False}
     assert result["inventory_mutated"] is False
+
+
+def test_perceptual_hash_is_stable_for_same_image():
+    from io import BytesIO
+    from PIL import Image
+    from app.financial_lifecycle import perceptual_hash, hamming_hash_distance
+    image=Image.new("RGB",(32,32),(240,30,30))
+    buffer=BytesIO(); image.save(buffer,format="PNG")
+    digest=perceptual_hash(buffer.getvalue())
+    assert digest and len(digest)==64
+    assert hamming_hash_distance(digest,digest)==0
+
+def test_perceptual_hash_distance_handles_invalid_values():
+    from app.financial_lifecycle import hamming_hash_distance
+    assert hamming_hash_distance("1010","10")==999
+    assert hamming_hash_distance("1010","1000")==1

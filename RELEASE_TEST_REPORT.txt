@@ -1,19 +1,40 @@
-MerchantOS v7.0 — API Contract & Input Integrity
+MerchantOS competition handoff — final local verification
+Date: 12 November 2026
 
-Python tests:
-92 passed, 1 skipped
+Backend compilation:
+PASS — python -m compileall -q app tests alembic
 
-Python compilation:
-PASS (python -m compileall -q app tests)
+Backend test suite:
+PASS — 289 passed, 5 skipped.
+Skipped tests:
+- 1 optional security-hardening test because python-jose is not installed in this local runtime (CI installs requirements.txt).
+- 2 configured API E2E tests because live base URL/token/order ID are not configured.
+- 1 PayPal Sandbox execution test because no explicit SANDBOX_ONLY confirmation and pre-approved approval ID are configured.
+- 1 Render workflow test because no live URL/token/case ID are configured.
 
-Frontend production build:
-NOT RUN — frontend/node_modules absent in this build environment.
+Frontend source syntax:
+PASS — node scripts/verify_frontend_syntax.cjs (8 TypeScript/TSX files).
 
-External integration tests:
-NOT RUN — no PayPal Sandbox credentials or deployed Render environment were provided.
+Financial AG Grid acceptance:
+PASS — node scripts/verify_financial_grid.cjs (13 required columns plus AG Grid, CSV export, quick search, status chips, row investigation, saved filters, and complaint-clustering action).
 
-PostgreSQL integration / RLS:
-NOT RUN — no live PostgreSQL service was available for this verification run.
+Application route registration:
+PASS — 132 routes registered; financial case list, tenant clustering, proof, Render workflow dispatch, and PayPal execution routes present.
+
+GitHub Actions workflow:
+PASS — YAML parse; backend, frontend, opt-in live-provider-smoke, and opt-in postgres-rls-smoke jobs present.
+
+Frontend dependency installation / TypeScript typecheck / Vite production build:
+NOT VERIFIED — npm install timed out in this environment. A global tsc attempt reports missing React/Vite modules and JSX declarations because node_modules is absent. GitHub Actions is configured to install frontend dependencies, typecheck, and build. Do not mark frontend build Verified until that CI job passes.
+
+PostgreSQL migration and tenant RLS isolation:
+NOT VERIFIED LIVE — requires a disposable PostgreSQL database and restricted non-superuser/non-BYPASSRLS runtime role. The manual GitHub Actions job supports running migrations/catalog checks; a two-tenant application isolation test is still required.
+
+PayPal Sandbox refund:
+NOT VERIFIED LIVE — requires merchant Sandbox credentials, a captured Sandbox payment, a reconciled approval, an independent approver token, PAYPAL_EXECUTION_ENABLED=true on the Sandbox service, and explicit SANDBOX_ONLY confirmation. The opt-in test executes one already approved Sandbox refund through the existing maker-checker/idempotent execution service.
+
+Render workflow:
+NOT VERIFIED LIVE — requires deployed Render Workflow service, RENDER_API_KEY, WORKFLOW_SERVICE_SLUG, authenticated test token, and an eligible case ID. The opt-in test dispatches run_resolution_pipeline and verifies the run ID appears in the proof endpoint.
 
 Release classification:
-Source-level API hardening checkpoint. Not certified for multi-tenant production or live-money execution. Keep the single-merchant pilot restriction and financial execution disabled.
+Competition demo candidate with backend and source-level frontend acceptance checks passing locally. Do not label frontend build, PostgreSQL/RLS, PayPal provider execution, or Render deployment Verified/Live until the corresponding configured CI/live smoke checks pass.

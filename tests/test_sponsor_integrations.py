@@ -32,7 +32,9 @@ def test_sponsor_config_declares_community_packages_and_workflow():
     package = json.loads((root / "frontend/package.json").read_text())
     deps = package["dependencies"]
     assert deps["ag-grid-react"] == "36.3.0"
-    assert deps["@bryntum/scheduler-react-community"] == "8.0.0"
+    assert "@bryntum/scheduler-react-community" not in deps  # timeline is native React; no private license/token needed
+    timeline = (root / "frontend/src/pages/ExecutionTimeline.tsx").read_text()
+    assert "execution-timeline" in timeline
     blueprint = (root / "render.yaml").read_text()
     assert "type: workflow" in blueprint
     assert "python -m app.render_workflows" in blueprint

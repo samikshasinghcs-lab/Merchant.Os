@@ -97,3 +97,25 @@ def test_production_readiness_rejects_symlink_evidence_directory(monkeypatch, tm
     report = readiness_report()
     check = next(x for x in report["checks"] if x["name"] == "private_evidence_storage_path")
     assert check["passed"] is False
+
+
+def test_sandbox_execution_requires_explicit_ack(monkeypatch):
+    from app.release_readiness import readiness_report
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("PAYPAL_MODE", "sandbox")
+    monkeypatch.setenv("PAYPAL_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("MERCHANTOS_SANDBOX_REFUND_EXECUTION_ACK", "false")
+    report=readiness_report()
+    gate=next(x for x in report["checks"] if x["name"]=="financial_execution")
+    assert gate["passed"] is False
+
+def test_sandbox_execution_ack_does_not_enable_live_mode(monkeypatch):
+    from app.release_readiness import readiness_report
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("PAYPAL_MODE", "sandbox")
+    monkeypatch.setenv("PAYPAL_EXECUTION_ENABLED", "true")
+    monkeypatch.setenv("MERCHANTOS_SANDBOX_REFUND_EXECUTION_ACK", "true")
+    report=readiness_report()
+    gate=next(x for x in report["checks"] if x["name"]=="financial_execution")
+    assert gate["passed"] is True
+    assert report["financial_execution"]=="sandbox_only_enabled"

@@ -35,8 +35,11 @@ async def lifespan(app):
     analyze()
     yield
 
+_PROCESS_STARTED_AT = time.time()
 app=FastAPI(title="MerchantOS",version="1.0.0",lifespan=lifespan)
 app.include_router(intelligence_router)
+from .financial_lifecycle import router as financial_lifecycle_router
+app.include_router(financial_lifecycle_router)
 static=Path(__file__).parent/"static";app.mount("/static",StaticFiles(directory=static),name="static")
 @app.get("/",response_class=HTMLResponse)
 def home():return (static/"index.html").read_text()
@@ -44,9 +47,19 @@ def home():return (static/"index.html").read_text()
 @app.get("/workspace",response_class=HTMLResponse)
 def workspace():return (static/"workspace.html").read_text()
 @app.get("/health")
+@app.get("/api/health")
 def health():
-    # Liveness only: does not imply that dependencies or external integrations are ready.
-    return {"status": "ok", "demo_mode": DEMO}
+    # Liveness only. Readiness and provider connectivity are reported separately.
+    commit = os.getenv("RENDER_GIT_COMMIT", os.getenv("GIT_COMMIT", "unknown"))
+    service = os.getenv("RENDER_SERVICE_NAME", "merchantos-api")
+    return {
+        "status": "ok", "demo_mode": DEMO,
+        "environment": "Sandbox" if MODE == "sandbox" else "Non-sandbox configuration",
+        "service": service, "commit": commit,
+        "uptime_seconds": max(0, int(time.time() - _PROCESS_STARTED_AT)),
+        "provider_execution": "disabled_in_demo" if DEMO else "approval-gated; sandbox-only",
+        "note": "Liveness only; this endpoint does not assert database, PayPal, or workflow readiness. See /ready.",
+    }
 
 
 @app.get("/ready")
@@ -960,6 +973,13 @@ _AUTH_LIMIT_LOCK = threading.Lock()
 _AUTH_WINDOW_SECONDS = 60
 _AUTH_MAX_ATTEMPTS = 8
 
+def _api_body_limit(path: str) -> int:
+    # Multipart evidence uploads contain a 5 MiB file plus form and multipart overhead.
+    if path.endswith('/upload') or path.endswith('/evidence') or '/import/' in path:
+        return 12 * 1024 * 1024
+    return 2 * 1024 * 1024
+
+
 @app.middleware('http')
 async def security_response_headers(request: Request, call_next):
     response = await call_next(request)
@@ -992,7 +1012,7 @@ async def api_access_control(request: Request, call_next):
     content_length = request.headers.get('content-length')
     if content_length:
         try:
-            limit = 12 * 1024 * 1024 if path.endswith('/upload') or '/import/' in path else 2 * 1024 * 1024
+            limit = _api_body_limit(path)
             if int(content_length) > limit:
                 return JSONResponse(status_code=413, content={'detail': 'Request body exceeds the configured limit'})
         except ValueError:
@@ -1433,8 +1453,3 @@ def paypal_vault_return():
 @app.get("/paypal/vault/cancel", response_class=HTMLResponse)
 def paypal_vault_cancel():
     return "<main><h1>PayPal vault setup cancelled</h1><p>No payment token was finalized.</p></main>"
-
-
-# Additive tenant-scoped financial lifecycle workspace.
-from .financial_lifecycle import router as financial_lifecycle_router
-app.include_router(financial_lifecycle_router)

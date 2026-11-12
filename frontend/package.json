@@ -7,12 +7,11 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "typecheck": "tsc -b --pretty false"
+    "typecheck": "tsc -b --pretty false",
+    "verify:syntax": "node ../scripts/verify_frontend_syntax.cjs",
+    "verify:grid": "node ../scripts/verify_financial_grid.cjs"
   },
   "dependencies": {
-    "@bryntum/core-community": "8.0.0",
-    "@bryntum/scheduler-community": "8.0.0",
-    "@bryntum/scheduler-react-community": "8.0.0",
     "@vitejs/plugin-react": "4.4.1",
     "ag-grid-community": "36.3.0",
     "ag-grid-react": "36.3.0",

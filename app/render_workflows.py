@@ -53,6 +53,20 @@ def process_tenant_paypal_event(ctx: TaskContext, tenant_id: str, event_id: str)
     return {"tenant_id": tenant_id, "event_id": event_id, "result": result}
 
 
+
+@app.task(name="run_resolution_pipeline", retry=_RETRY, timeout_seconds=90)
+def run_resolution_pipeline(ctx: TaskContext, transactions: list, events: list,
+                            per_refund_cap: float = 100.0,
+                            daily_cap: float = 500.0) -> dict:
+    """Run advisory transaction analysis; this task has no payment-provider write path."""
+    from .resolution_pipeline import build_resolution_pipeline
+    run_id = getattr(getattr(ctx, "metadata", None), "task_run_id", None)
+    return build_resolution_pipeline(
+        transactions, events, per_refund_cap, daily_cap,
+        run_id=str(run_id) if run_id is not None else None,
+    )
+
+
 def _build_work_item(event: dict) -> dict:
     from .workflow_engine import build_reconciliation_work_item
     return build_reconciliation_work_item(event)
