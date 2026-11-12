@@ -392,7 +392,9 @@ export function Dashboard(){
       {aiResult?.analysis ? <>
         <p>{aiResult.analysis.executive_summary}</p>
         {(['observed_signals','hypotheses_to_verify','recommended_next_steps','data_limitations'] as const).map(key=><div key={key}><h4>{key.replace(/_/g,' ')}</h4><ul>{(aiResult.analysis[key]||[]).map((v:string,i:number)=><li key={i}>{v}</li>)}</ul></div>)}
-        <small className="muted">MerchantOS AI · Temporary rules-based demo engine · Workspace records only · Advisory; no financial action authorized.</small>
+        {aiResult.analysis.rating_distribution&&<div><h4>Rating distribution</h4><div className="metric-grid">{aiResult.analysis.rating_distribution.map((x:any)=><Metric key={x.stars} label={`${x.stars} star`} value={x.count} caption="Recorded reviews" icon={Activity}/>)}</div></div>}
+        {aiResult.analysis.low_rating_reviews?.length>0&&<div><h4>Low-rated reviews to inspect</h4><div className="customer-review-list">{aiResult.analysis.low_rating_reviews.map((r:any,i:number)=><article className="customer-review" key={i}><div className="customer-review-head"><b>{r.customer} · {r.product}</b><span className="review-rating">{r.rating} / 5</span></div><p className="review-copy">“{r.text}”</p><small className="muted">Order: {r.order}</small></article>)}</div></div>}
+        <small className="muted">MerchantOS · Temporary rules-based review analysis · Workspace review records only · Not AI · Advisory; no financial action authorized.</small>
       </> : <p className="muted">Generate an operational summary from this tenant's reviews, refunds and disputes.</p>}
     </Panel>
     <div className="two-col">
