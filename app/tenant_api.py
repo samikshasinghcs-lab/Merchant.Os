@@ -98,6 +98,11 @@ recommended_next_steps, data_limitations."""
         return {'provider': 'openrouter' if 'openrouter.ai' in base else 'openai_compatible',
                 'model': model, 'analysis': parsed, 'source': 'TENANT_SCOPED_RECORDS',
                 'financial_action_authorized': False, 'human_approval_required': True}
+    except requests.HTTPError as exc:
+        status = exc.response.status_code if exc.response is not None else "unknown"
+        raise HTTPException(502, f'LLM provider returned HTTP {status}. Check the configured provider key, model access and quota.')
+    except requests.Timeout:
+        raise HTTPException(504, 'LLM provider timed out. Retry once the provider is responsive.')
     except Exception as exc:
         raise HTTPException(502, 'LLM request failed or returned invalid structured output: ' + type(exc).__name__)
 
