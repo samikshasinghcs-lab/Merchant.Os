@@ -9,7 +9,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc -b --pretty false",
     "verify:syntax": "node ../scripts/verify_frontend_syntax.cjs",
-    "verify:grid": "node ../scripts/verify_financial_grid.cjs"
+    "verify:grid": "node ../scripts/verify_financial_grid.cjs",
+    "verify:workspace-grid": "node ../scripts/verify_workspace_ag_grid.cjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "4.4.1",
