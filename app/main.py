@@ -40,6 +40,8 @@ app=FastAPI(title="MerchantOS",version="1.0.0",lifespan=lifespan)
 app.include_router(intelligence_router)
 from .financial_lifecycle import router as financial_lifecycle_router
 app.include_router(financial_lifecycle_router)
+from .demo_seed import router as demo_seed_router
+app.include_router(demo_seed_router)
 static=Path(__file__).parent/"static";app.mount("/static",StaticFiles(directory=static),name="static")
 @app.get("/",response_class=HTMLResponse)
 def home():return (static/"index.html").read_text()

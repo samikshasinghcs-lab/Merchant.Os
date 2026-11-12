@@ -83,3 +83,41 @@ class TenantAuditEvent(Base):
     event: Mapped[str]=mapped_column(String(100),nullable=False); entity_type: Mapped[str]=mapped_column(String(80),nullable=False)
     entity_id: Mapped[str]=mapped_column(String(100),nullable=False); detail: Mapped[dict]=mapped_column(JSON,default=dict,nullable=False)
     created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True),default=now_utc,nullable=False)
+
+class DemoCustomerProfile(Base):
+    """Synthetic, tenant-isolated customer profile used only by the unified demo."""
+    __tablename__ = "demo_customer_profiles"
+    __table_args__ = (UniqueConstraint("tenant_id", "customer_id", name="uq_demo_customer_tenant_customer"),)
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    customer_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    email: Mapped[str] = mapped_column(String(240), nullable=False)
+    city: Mapped[str] = mapped_column(String(100), nullable=False)
+    segment: Mapped[str] = mapped_column(String(40), nullable=False)
+    order_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    lifetime_value: Mapped[float] = mapped_column(Numeric(14, 2), nullable=False, default=0)
+    first_order_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_order_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    source_label: Mapped[str] = mapped_column(String(80), nullable=False, default="SYNTHETIC_DEMO")
+
+
+class DemoProductBatchInsight(Base):
+    """Precomputed illustrative product/batch signals; never represented as live inventory truth."""
+    __tablename__ = "demo_product_batch_insights"
+    __table_args__ = (UniqueConstraint("tenant_id", "product_key", "batch", name="uq_demo_product_batch_tenant"),)
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_key: Mapped[str] = mapped_column(String(120), nullable=False)
+    product_name: Mapped[str] = mapped_column(String(240), nullable=False)
+    sku: Mapped[str] = mapped_column(String(100), nullable=False)
+    batch: Mapped[str] = mapped_column(String(100), nullable=False)
+    units_sold: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    complaint_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    damage_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    leak_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    average_rating: Mapped[float] = mapped_column(Numeric(4, 2), nullable=False, default=0)
+    risk_level: Mapped[str] = mapped_column(String(20), nullable=False)
+    signals: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    source_label: Mapped[str] = mapped_column(String(80), nullable=False, default="SYNTHETIC_DEMO")
+
