@@ -212,11 +212,28 @@ export function Login({onLogin}:{onLogin:(u:any)=>void}) {
 /* COMMAND CENTER */
 
 export function Dashboard(){
-  const {data,error,busy,refresh}=useLoad<Any>('/api/dashboard');
-  const {data:ins}=useLoad<Any>('/api/insights');
-  const {data:root}=useLoad<Any>('/api/root-cause');
+  const {data,error,busy,refresh}=useLoad<Any>('/api/v1/domain/dashboard');
+  const {data:root}=useLoad<Any>('/api/v1/domain/root-cause');
+  const [seeding,setSeeding]=useState(false);
+  const [seedMessage,setSeedMessage]=useState('');
 
-  const findings=root?.findings||ins?.findings||[];
+  const findings=root?.findings||[];
+
+  async function loadIllustrativeData(){
+    setSeeding(true);
+    setSeedMessage('');
+    try{
+      const result=await api<Any>('/api/v1/domain/demo-seed',{method:'POST'});
+      setSeedMessage(result.status==='ALREADY_PRESENT'
+        ? 'Illustrative dataset is already present. No duplicate records were created.'
+        : 'Illustrative dataset loaded. 30 linked orders; no PayPal transactions or provider confirmations were created.');
+      refresh();
+    }catch(e:any){
+      setSeedMessage(e.message||'Could not load illustrative data.');
+    }finally{
+      setSeeding(false);
+    }
+  }
 
   function formatFinding(item:any){
     let details=item.summary||item.description||item.detail||{};
@@ -239,8 +256,8 @@ export function Dashboard(){
 
     const title=category.replace(/\b\w/g,c=>c.toUpperCase());
 
-    const batch=item.batch_id||details.batch;
-    const complaints=item.count??details.complaints;
+    const batch=item.batch||item.batch_id||details.batch;
+    const complaints=item.complaints??item.count??details.complaints;
     const share=item.share_pct??details.share_pct;
 
     return {
@@ -257,13 +274,19 @@ export function Dashboard(){
       title="Command center"
       sub="A live view of customer experience, financial operations and emerging business issues."
       action={
-        <button className="secondary" onClick={refresh}>
-          <RefreshCw size={15}/> Refresh
-        </button>
+        <div className="heading-actions">
+          <button className="secondary" onClick={refresh}>
+            <RefreshCw size={15}/> Refresh
+          </button>
+          <button className="primary" onClick={loadIllustrativeData} disabled={seeding}>
+            {seeding?'Loading…':'Load illustrative demo data'}
+          </button>
+        </div>
       }
     />
 
     {error&&<div className="error">{error}</div>}
+    {seedMessage&&<div className="notice">{seedMessage}</div>}
 
     <div className="metric-grid">
       <Metric
@@ -359,7 +382,7 @@ export function Dashboard(){
 /* CUSTOMERS */
 
 export function Customers(){
-  const {data,error,busy}=useLoad<any[]>('/api/customers');
+  const {data,error,busy}=useLoad<any[]>('/api/v1/domain/customers');
   const [q,setQ]=useState('');
   const [detail,setDetail]=useState<any>(null);
 
@@ -369,7 +392,7 @@ export function Customers(){
       ...x,
       customer_id:<button className="table-link" onClick={async()=>{
         try{
-          setDetail(await api(`/api/customers/${encodeURIComponent(x.customer_id)}`));
+          setDetail(await api(`/api/v1/domain/customers/${encodeURIComponent(x.customer_id)}`));
         }catch(e:any){
           setDetail({error:e.message});
         }
@@ -588,12 +611,13 @@ export function Customers(){
     </>
   );
 })()}
+  </>;
 }
 
 /* REVIEWS */
 
 export function Reviews(){
-  const {data,error,refresh}=useLoad<any[]>('/api/reviews/semantic-clusters');
+  const {data,error,refresh}=useLoad<any[]>('/api/v1/domain/review-clusters');
   const [file,setFile]=useState<File|null>(null);
   const [msg,setMsg]=useState('');
 
@@ -603,7 +627,7 @@ export function Reviews(){
     f.append('file',file);
 
     try{
-      const r=await api<any>('/api/reviews/import/generic_csv',{method:'POST',body:f});
+      const r=await api<any>('/api/v1/domain/reviews/import',{method:'POST',body:f});
       setMsg(`Imported ${r.imported??r.inserted??0} reviews. ${r.duplicates??0} duplicates skipped.`);
       refresh();
     }catch(e:any){
@@ -613,7 +637,7 @@ export function Reviews(){
 
   async function analyze(){
     try{
-      const r=await api<any>('/api/reviews/semantic-analysis',{method:'POST'});
+      const r=await api<any>('/api/v1/financial-lifecycle/complaint-clusters/run',{method:'POST'});
       setMsg(`Analysis complete using ${r.method||'configured pipeline'}.`);
       refresh();
     }catch(e:any){
@@ -651,7 +675,7 @@ export function Reviews(){
 /* TRANSACTION INVESTIGATION */
 
 export function Transactions(){
-  const {data,error,busy}=useLoad<any[]>('/api/transactions');
+  const {data,error,busy}=useLoad<any[]>('/api/v1/domain/transactions');
   const [id,setId]=useState('');
   const [record,setRecord]=useState<any>(null);
   const [investigating,setInvestigating]=useState(false);
@@ -666,7 +690,7 @@ export function Transactions(){
 
     try{
       const result=await api<any>(
-        `/api/transactions/${encodeURIComponent(id.trim())}`
+        `/api/v1/domain/transactions/${encodeURIComponent(id.trim())}`
       );
       setRecord(result);
     }catch(e:any){
@@ -764,7 +788,7 @@ export function Transactions(){
           id:<button className="table-link" onClick={()=>{
             setId(x.id);
             setRecord(null);
-            setTimeout(()=>api(`/api/transactions/${encodeURIComponent(x.id)}`).then(setRecord).catch(e=>setInvestigationError(e.message)),0);
+            setTimeout(()=>api(`/api/v1/domain/transactions/${encodeURIComponent(x.id)}`).then(setRecord).catch(e=>setInvestigationError(e.message)),0);
             window.scrollTo({top:0,behavior:'smooth'});
           }}>{x.id}</button>,
           amount:x.amount!=null?money(x.amount):'—'
@@ -777,14 +801,14 @@ export function Transactions(){
 /* REFUNDS */
 
 export function Refunds(){
-  const {data,error,refresh}=useLoad<any[]>('/api/refunds');
+  const {data,error,refresh}=useLoad<any[]>('/api/v1/domain/refunds');
   const [detail,setDetail]=useState<any>(null);
 
   const rows=(data||[]).map(x=>({
     ...x,
     id:<button className="table-link" onClick={async()=>{
       try{
-        setDetail(await api(`/api/refunds/${encodeURIComponent(x.id)}`));
+        setDetail(await api(`/api/v1/domain/refunds/${encodeURIComponent(x.id)}`));
       }catch(e:any){
         setDetail({error:e.message});
       }
@@ -809,7 +833,7 @@ export function Refunds(){
 
 export function Disputes(){
   const {data,error,refresh}=useLoad<any[]>('/api/paypal/disputes');
-  const {data:local}=useLoad<any[]>('/api/disputes');
+  const {data:local}=useLoad<any[]>('/api/v1/domain/disputes');
 
   const [detail,setDetail]=useState<any>(null);
   const [loading,setLoading]=useState(false);
@@ -823,7 +847,7 @@ export function Disputes(){
     try{
       const path=isPayPal
         ?`/api/paypal/disputes/${encodeURIComponent(id)}`
-        :`/api/disputes/${encodeURIComponent(id)}/assessment`;
+        :`/api/v1/domain/disputes/${encodeURIComponent(id)}`;
 
       setDetail(await api<any>(path));
     }catch(e:any){
@@ -1045,7 +1069,7 @@ export function Milestones(){
 /* EVIDENCE */
 
 export function Evidence(){
-  const {data,error,refresh}=useLoad<any[]>('/api/evidence/files');
+  const {data,error,refresh}=useLoad<any[]>('/api/v1/domain/evidence');
   const [file,setFile]=useState<File|null>(null);
   const [order,setOrder]=useState('');
   const [type,setType]=useState('DELIVERY_CONFIRMATION');
@@ -1057,7 +1081,7 @@ export function Evidence(){
     f.append('file',file);
 
     try{
-      await api(`/api/evidence/upload?order_id=${encodeURIComponent(order)}&evidence_type=${encodeURIComponent(type)}&description=${encodeURIComponent(description)}`,{
+      await api(`/api/v1/domain/evidence/upload?order_id=${encodeURIComponent(order)}&evidence_type=${encodeURIComponent(type)}&description=${encodeURIComponent(description)}`,{
         method:'POST',
         body:f
       });
@@ -1083,7 +1107,7 @@ export function Evidence(){
       <button className="primary" onClick={upload} disabled={!file||!order}>Upload evidence</button>
     </Panel>
     <Panel title="Stored evidence files">
-      <Table columns={['id','original_name','mime_type','size_bytes','integrity_status','created_at']} rows={data||[]}/>
+      <Table columns={['id','order_id','evidence_type','description','integrity_status','created_at']} rows={data||[]}/>
       {error&&<p className="error">{error}</p>}
       <button className="secondary" onClick={refresh}>Refresh</button>
     </Panel>
@@ -1093,7 +1117,7 @@ export function Evidence(){
 /* AUDIT */
 
 export function Audit() {
-  const {data,error,busy} = useLoad<any[]>('/api/audit');
+  const {data,error,busy} = useLoad<any[]>('/api/v1/domain/audit');
 
   function parseDetail(value:any) {
     if (typeof value !== 'string') return value || {};
@@ -1266,3 +1290,45 @@ export function Audit() {
     </>
   );
         }
+
+/* TENANT ROOT-CAUSE INTELLIGENCE */
+
+export function RootCause(){
+  const {data,error,busy,refresh}=useLoad<Any>('/api/v1/domain/root-cause');
+  const findings=Array.isArray(data?.findings)?data.findings:[];
+
+  return <>
+    <Heading
+      title="Root-cause intelligence"
+      sub="Explore complaint patterns linked to products, batches and merchant cases."
+      action={<button className="secondary" onClick={refresh}><RefreshCw size={14}/> Refresh</button>}
+    />
+    {error&&<div className="error">{error}</div>}
+    <div className="notice warning">
+      These are tenant-scoped descriptive signals. Correlation does not establish a manufacturing or operational cause.
+    </div>
+    <Panel title="Batch and product signals" extra={<span className="muted">{findings.length} findings</span>}>
+      {busy
+        ? <p className="muted">Loading tenant intelligence…</p>
+        : findings.length
+          ? <div className="insight-list">
+              {findings.map((item:any,index:number)=>(
+                <article className="insight" key={item.batch||item.id||index}>
+                  <span className="insight-icon"><Activity size={17}/></span>
+                  <div>
+                    <b>{item.title||item.category||'Operational signal'}</b>
+                    <p>{item.summary||'No explanatory detail was returned.'}</p>
+                    {item.products?.length>0&&<p>Products: {item.products.join(', ')}</p>}
+                    <small className="muted">{item.interpretation||'Exploratory association only.'}</small>
+                  </div>
+                  <strong>{item.complaints??0} / {item.batch||'—'}</strong>
+                </article>
+              ))}
+            </div>
+          : <div className="empty-state"><b>No complaint concentration detected</b><p>Linked reviews and case records will appear here as they are added.</p></div>
+      }
+    </Panel>
+    {data?.limitations&&<p className="muted">{data.limitations}</p>}
+  </>;
+}
+
