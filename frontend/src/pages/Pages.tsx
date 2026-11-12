@@ -693,7 +693,7 @@ export function Reviews(){
     </div>
 
     <Panel title="Complaint clusters">
-      <Table columns={['cluster_id','count','avg_sentiment','analyzed_at']} rows={data||[]}/>
+      <Table columns={['cluster_id','count','avg_rating','analyzed_at']} rows={data||[]}/>
       {error&&<div className="error">{error}</div>}
     </Panel>
   </>;
