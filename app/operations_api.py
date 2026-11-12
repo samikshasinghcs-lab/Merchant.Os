@@ -131,7 +131,7 @@ def list_refund_approvals(p=Depends(principal)):
     from sqlalchemy import select
     with tenant_session(p['tenant_id']) as s:
         rows=s.scalars(select(FinancialApprovalRequest).where(FinancialApprovalRequest.tenant_id==p['tenant_id']).order_by(FinancialApprovalRequest.created_at.desc()).limit(100)).all()
-        return [{'id':x.id,'action':x.action,'capture_id':x.capture_id,'amount':x.amount,'currency':x.currency,'reason':x.reason,'status':x.status,'requester_id':x.requester_id,'approver_id':x.approver_id,'created_at':x.created_at.isoformat(),'decided_at':x.decided_at.isoformat() if x.decided_at else None,'policy_digest':x.policy_digest} for x in rows]
+        return [{'id':x.id,'request_key':x.request_key,'action':x.action,'capture_id':x.capture_id,'amount':x.amount,'currency':x.currency,'reason':x.reason,'status':x.status,'requester_id':x.requester_id,'approver_id':x.approver_id,'created_at':x.created_at.isoformat(),'decided_at':x.decided_at.isoformat() if x.decided_at else None,'policy_digest':x.policy_digest} for x in rows]
 
 @router.post('/financial/refund-approvals/{approval_id}/decision')
 def decide_refund_approval(approval_id:str,body:dict,p=Depends(principal)):
