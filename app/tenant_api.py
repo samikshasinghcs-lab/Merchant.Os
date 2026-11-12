@@ -8,6 +8,7 @@ from sqlalchemy import select
 from . import auth as identity
 from .tenant_db import tenant_session
 from .domain_models import TenantOrder, TenantReview, TenantRefund, TenantDispute, TenantEvidence, TenantAuditEvent
+from .paypal_tenant import TenantPayPalTransaction
 from .api_schemas import TenantOrderCreate, TenantReviewCreate
 
 router = APIRouter(prefix='/api/v1/domain', tags=['tenant-domain'])
@@ -58,13 +59,15 @@ def tenant_ai_insights(p=Depends(principal)):
         refunds = s.scalars(select(TenantRefund).where(TenantRefund.tenant_id == p['tenant_id'])).all()
         disputes = s.scalars(select(TenantDispute).where(TenantDispute.tenant_id == p['tenant_id'])).all()
         evidence = s.scalars(select(TenantEvidence).where(TenantEvidence.tenant_id == p['tenant_id'])).all()
+        paypal_transactions = s.scalars(select(TenantPayPalTransaction).where(TenantPayPalTransaction.tenant_id == p['tenant_id']).order_by(TenantPayPalTransaction.transaction_initiation_date.desc()).limit(200)).all()
     summary = {
-        'counts': {'orders': len(orders), 'reviews': len(reviews), 'refund_records': len(refunds), 'disputes': len(disputes), 'evidence_records': len(evidence)},
+        'counts': {'orders': len(orders), 'reviews': len(reviews), 'refund_records': len(refunds), 'disputes': len(disputes), 'evidence_records': len(evidence), 'verified_paypal_transactions': len(paypal_transactions)},
         'orders': [{'product': x.product, 'batch': x.batch, 'amount': str(x.amount), 'currency': x.currency, 'payment_status': x.payment_status} for x in orders[:100]],
         'reviews': [{'rating': x.rating, 'category': x.category, 'severity': x.severity, 'text': (x.text or '')[:1200]} for x in reviews],
         'refunds': [{'amount': str(x.amount), 'currency': x.currency, 'status': x.status, 'reason': x.reason, 'paypal_status': x.paypal_status} for x in refunds[:50]],
         'disputes': [{'status': x.status, 'reason': x.reason, 'customer_message': (x.customer_message or '')[:1000]} for x in disputes[:30]],
         'evidence_types': [x.evidence_type for x in evidence],
+        'paypal_transactions': [{'transaction_id': x.paypal_transaction_id, 'status': x.transaction_status, 'type': x.transaction_type, 'amount': x.transaction_amount, 'fee': x.fee_amount, 'initiated_at': x.transaction_initiation_date, 'updated_at': x.transaction_updated_date, 'source': 'PAYPAL_API'} for x in paypal_transactions],
     }
     system = """You are MerchantOS Intelligence, a read-only merchant operations analyst.
 Analyze only supplied tenant records. Separate observed facts from hypotheses.
