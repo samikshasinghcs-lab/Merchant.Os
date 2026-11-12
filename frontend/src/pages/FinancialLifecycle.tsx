@@ -544,6 +544,7 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
 
   const caseData = asObject(detail.case);
   const order = asObject(detail.order);
+  const originalCaptureId = String(order.capture_id || '');
   const signals = asObject(detail.signals);
   const ai = asObject(detail.computed_recommendation);
   const evidence = asArray(detail.evidence);
@@ -643,8 +644,19 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
         </div>
         <small className="fl-muted">{!evidence.length ? 'Locked: attach evidence first.' : !reasonCode ? 'Locked: choose a reason code.' : decisionNote.trim().length < 5 ? 'Locked: enter a decision note (at least 5 characters).' : 'Ready for human review.'} Approval is a proposal only. Refunds still require separate reconciliation, independent approver and PayPal Sandbox execution.</small>
         {['RETURN', 'REFUND'].includes(String(selected.case_type)) && <div className="fl-invest-box" style={{ marginTop: 12 }}>
+          <h4>Refund destination · original payment method</h4>
+          <div className="fl-invest-box" style={{marginBottom:12,background:'#f8fafc'}}>
+            <b>Refund back to the payment that funded this order</b>
+            <p className="fl-muted">PayPal sends a capture refund to the customer's original funding source. MerchantOS uses the verified capture ID linked to this order; do not enter a different customer or wallet ID.</p>
+            <label className="fl-field">Original PayPal capture ID
+              <input readOnly value={originalCaptureId} placeholder="No capture ID linked to this order" aria-label="Original PayPal capture ID" />
+            </label>
+            <button type="button" className="fl-btn" disabled={!originalCaptureId} onClick={() => { void navigator.clipboard?.writeText(originalCaptureId).then(() => onMessage('Original PayPal capture ID copied.')).catch(() => onError('Could not copy the capture ID; select and copy it manually.')); }}>Copy payment ID</button>
+            {!originalCaptureId && <p className="fl-error">Refund blocked: this order has no recorded PayPal capture ID. Reconcile the original payment before requesting a refund.</p>}
+            <p><b>Refund amount:</b> {order.currency ?? ''} {money(selected.requested_amount)} · <b>Destination:</b> Original PayPal funding source</p>
+          </div>
           <h4>PayPal Sandbox refund lifecycle</h4>
-          {!approval?.id && <><button type="button" className="fl-btn" disabled={busy || caseData.status !== 'UNDER_REVIEW'} onClick={() => void requestRefundApproval()}>Create linked refund request</button>{caseData.status !== 'UNDER_REVIEW' && <small className="fl-muted">Available after the case reaches UNDER REVIEW. Current case status: {caseData.status ?? 'unknown'}.</small>}</>}
+          {!approval?.id && <><button type="button" className="fl-btn" disabled={busy || caseData.status !== 'UNDER_REVIEW' || !originalCaptureId || Number(selected.requested_amount) <= 0 || Number(selected.requested_amount) > Number(order.amount)} onClick={() => void requestRefundApproval()}>Create linked refund request</button>{caseData.status !== 'UNDER_REVIEW' && <small className="fl-muted">Available after the case reaches UNDER REVIEW. Current case status: {caseData.status ?? 'unknown'}.</small>}{Number(selected.requested_amount) > Number(order.amount) && <small className="fl-error">Refund amount exceeds the original captured order amount.</small>}</>}
           {approval?.id && <>
             <p className="fl-muted">Request {String(approval.id).slice(0, 8)} · {approval.status} · {approval.currency ?? detail.order?.currency ?? ''} {approval.amount ?? selected.requested_amount}</p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -653,7 +665,7 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
               {approval.status === 'APPROVED' && <button type="button" className="fl-btn" disabled={busy} onClick={() => void executeRefund()}>Execute PayPal Sandbox refund</button>}
             </div>
             {approval.execution && <p><b>Provider:</b> PAYPAL SANDBOX · <b>Status:</b> {approval.execution.provider_status ?? approval.execution.status} · <b>Refund ID:</b> {approval.execution.provider_refund_id ?? 'Not confirmed'}</p>}
-            <small className="fl-muted">Maker/checker separation applies: the person who requested the refund cannot approve it. Execution is restricted to the recorded approver. Ambiguous provider outcomes are never retried automatically.</small>
+            <small className="fl-muted">After case approval, the request is reconciled against PayPal, then a different OWNER/ADMIN must approve it. The recorded approver executes the Sandbox refund. PayPal returns funds to the original funding source; approval alone does not move money. Ambiguous provider outcomes are never retried automatically.</small>
           </>}
         </div>}
       </div>
