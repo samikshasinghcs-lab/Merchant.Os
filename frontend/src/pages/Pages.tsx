@@ -256,8 +256,8 @@ export function Dashboard(){
 
     const title=category.replace(/\b\w/g,c=>c.toUpperCase());
 
-    const batch=item.batch_id||details.batch;
-    const complaints=item.count??details.complaints;
+    const batch=item.batch||item.batch_id||details.batch;
+    const complaints=item.complaints??item.count??details.complaints;
     const share=item.share_pct??details.share_pct;
 
     return {
