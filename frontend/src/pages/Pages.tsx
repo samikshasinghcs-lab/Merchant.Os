@@ -14,10 +14,20 @@ function useLoad<T=any>(path:string){
 
   const load=()=>{
     setBusy(true);
-    api<T>(path)
+    setError('');
+    const attempt=(retry:boolean)=>api<T>(path)
       .then(setData)
-      .catch(e=>setError(e.message))
+      .catch((e:any)=>{
+        // Render may be waking from an idle period. Retry a transient browser
+        // network failure once before surfacing it as a broken page.
+        if(retry && e instanceof TypeError){
+          window.setTimeout(()=>attempt(false),1200);
+          return;
+        }
+        setError(e.message||'Could not load records.');
+      })
       .finally(()=>setBusy(false));
+    void attempt(true);
   };
 
   useEffect(load,[path]);
@@ -320,7 +330,7 @@ export function Dashboard(){
       />
 
       <Metric
-        label="Refund value"
+        label="Proposed refund value"
         value={data?.refund_total!==undefined?money(data.refund_total):'—'}
         caption="Proposed demo refunds; not provider-executed"
         icon={Activity}
