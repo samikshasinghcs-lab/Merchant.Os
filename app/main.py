@@ -48,7 +48,7 @@ app.add_middleware(
         "https://merchantos-web-vexora-b9e7.vercel.app",
         "https://merchantos-694snqkz9-vexora-b9e7.vercel.app",
     ],
-    allow_origin_regex=r"https://merchantos-[a-z0-9-]+-vexora-b9e7\\.vercel\\.app",
+    allow_origin_regex=r"https://merchantos-[a-z0-9-]+-vexora-b9e7\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
