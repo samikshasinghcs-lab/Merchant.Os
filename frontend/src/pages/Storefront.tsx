@@ -19,9 +19,14 @@ export function StorefrontAdmin(){
  const [description,setDescription]=useState('A sample product for the live PayPal Sandbox journey.');
  const [amount,setAmount]=useState('25.00');
  const [currency,setCurrency]=useState('USD');
+ const [clientId,setClientId]=useState('');
+ const [clientSecret,setClientSecret]=useState('');
+ const [paypalConnected,setPaypalConnected]=useState(false);
  const [storeUrl,setStoreUrl]=useState('');
  const [error,setError]=useState('');
  const [busy,setBusy]=useState(false);
+ useEffect(()=>{api<any>('/api/v1/paypal-connection/status').then(r=>setPaypalConnected(!!r.connected)).catch(()=>setPaypalConnected(false));},[]);
+ async function connectPaypal(){setBusy(true);setError('');try{await api('/api/v1/paypal-connection/connect',{method:'POST',body:JSON.stringify({client_id:clientId,client_secret:clientSecret,environment:'sandbox'})});setPaypalConnected(true);setClientSecret('');}catch(e:any){setError(e.message||'PayPal Sandbox connection failed.');}finally{setBusy(false);}}
  async function save(){
   setBusy(true);setError('');
   try{const r=await api<any>('/api/v1/storefront/setup',{method:'POST',body:JSON.stringify({slug,products:[{id:'demo-product',name,description,amount,currency}]})});setStoreUrl(window.location.origin+r.store_path);}
@@ -29,6 +34,7 @@ export function StorefrontAdmin(){
   finally{setBusy(false);}
  }
  return <main style={box}><div style={{fontSize:11,letterSpacing:2,fontWeight:800,color:'#64748b'}}>CUSTOMER EXPERIENCE / STOREFRONT</div><h1>Launch your Sandbox store</h1><p>Configure a product catalogue. Customers can purchase through PayPal Sandbox and submit complaints against captured orders.</p>
+  <h2>1. Connect PayPal Sandbox</h2><p>Use your PayPal Developer app Sandbox Client ID and Secret. The backend encrypts the secret and never returns it.</p><label style={field}>Sandbox Client ID<input style={input} value={clientId} onChange={e=>setClientId(e.target.value)} autoComplete="off"/></label><label style={field}>Sandbox Client Secret<input style={input} type="password" value={clientSecret} onChange={e=>setClientSecret(e.target.value)} autoComplete="new-password"/></label><button style={button} disabled={busy||clientId.length<10||clientSecret.length<10} onClick={connectPaypal}>{busy?'Connecting…':'Connect PayPal Sandbox'}</button><div style={note}>{paypalConnected?'PayPal Sandbox connection is active.':'PayPal Sandbox is not connected yet.'}</div><h2>2. Configure product catalogue</h2>
   <label style={field}>Store URL slug<input style={input} value={slug} onChange={e=>setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,''))}/></label>
   <label style={field}>Product name<input style={input} value={name} onChange={e=>setName(e.target.value)}/></label>
   <label style={field}>Description<input style={input} value={description} onChange={e=>setDescription(e.target.value)}/></label>
