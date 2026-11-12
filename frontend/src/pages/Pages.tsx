@@ -391,8 +391,203 @@ export function Customers(){
       {busy&&<p className="muted">Loading customers…</p>}
     </Panel>
 
-    {detail&&<Panel title="Customer investigation"><pre>{JSON.stringify(detail,null,2)}</pre></Panel>}
-  </>;
+    {detail && (() => {
+  const customer = detail.customer || detail;
+  const reviews = Array.isArray(customer.reviews)
+    ? customer.reviews
+    : [];
+
+  const orders = Array.isArray(customer.orders)
+    ? customer.orders
+    : [];
+
+  const averageRating = customer.avg_rating ??
+    (reviews.length
+      ? reviews.reduce(
+          (sum: number, r: any) => sum + Number(r.rating || 0), 0
+        ) / reviews.length
+      : null);
+
+  const format = (value: any) =>
+    String(value ?? 'Not recorded')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+
+  const date = (value: any) =>
+    value
+      ? new Date(value).toLocaleDateString()
+      : 'Date unavailable';
+
+  return (
+    <>
+      <Panel title="Customer investigation">
+
+        <div className="customer-profile">
+          <div>
+            <span className="customer-avatar">
+              {(customer.customer_name || '?').charAt(0).toUpperCase()}
+            </span>
+
+            <div>
+              <h2>{customer.customer_name || 'Customer record'}</h2>
+              <p>{customer.customer_id || 'ID unavailable'}</p>
+            </div>
+          </div>
+
+          <span className="customer-status">
+            Customer profile
+          </span>
+        </div>
+
+        <div className="metric-grid customer-metrics">
+
+          <Metric
+            label="Reviews"
+            value={reviews.length || customer.review_count || 0}
+            caption="Feedback records"
+            icon={FileText}
+          />
+
+          <Metric
+            label="Average rating"
+            value={averageRating !== null
+              ? Number(averageRating).toFixed(1) + ' / 5'
+              : '—'}
+            caption="Customer feedback"
+            icon={Activity}
+          />
+
+          <Metric
+            label="Orders"
+            value={orders.length || customer.referenced_orders || '—'}
+            caption="Associated orders"
+            icon={Wallet}
+          />
+
+          <Metric
+            label="High severity"
+            value={reviews.filter(
+              (r: any) =>
+                String(r.severity).toLowerCase() === 'high'
+            ).length}
+            caption="Issues requiring attention"
+            icon={AlertCircle}
+          />
+
+        </div>
+      </Panel>
+
+      <Panel
+        title="Customer feedback"
+        extra={
+          <span className="muted">
+            {reviews.length} records
+          </span>
+        }
+      >
+
+        {reviews.length ? (
+
+          <div className="customer-review-list">
+
+            {reviews.map((review: any, index: number) => (
+
+              <article
+                className="customer-review"
+                key={review.id || index}
+              >
+
+                <div className="customer-review-head">
+
+                  <div>
+                    <span className="review-category">
+                      {format(
+                        review.category ||
+                        review.cluster_id ||
+                        'Customer feedback'
+                      )}
+                    </span>
+
+                    <small>
+                      {review.id || 'Review'} · {date(review.created_at)}
+                    </small>
+                  </div>
+
+                  <span className="review-rating">
+                    {review.rating ?? '—'}
+                    <small> / 5</small>
+                  </span>
+
+                </div>
+
+                <p className="review-copy">
+                  {review.text || 'No written feedback provided.'}
+                </p>
+
+                <div className="review-meta">
+
+                  <span>
+                    Order <b>{review.order_id || 'Not linked'}</b>
+                  </span>
+
+                  <span>
+                    Product <b>{review.product || 'Not recorded'}</b>
+                  </span>
+
+                  <span className={
+                    `severity-pill severity-${String(
+                      review.severity || 'unknown'
+                    ).toLowerCase()}`
+                  }>
+                    {format(review.severity || 'Unknown')} severity
+                  </span>
+
+                </div>
+
+              </article>
+
+            ))}
+
+          </div>
+
+        ) : (
+
+          <div className="empty-state">
+            <b>No feedback records</b>
+            <p>No reviews were returned for this customer.</p>
+          </div>
+
+        )}
+
+      </Panel>
+
+      {orders.length > 0 && (
+
+        <Panel title="Associated orders">
+
+          <Table
+            columns={[
+              'id',
+              'product',
+              'amount',
+              'currency',
+              'payment_status'
+            ]}
+            rows={orders}
+          />
+
+        </Panel>
+
+      )}
+
+      <p className="customer-footnote">
+        Investigation summary is based on records returned by MerchantOS.
+        Missing fields are shown as not recorded.
+      </p>
+
+    </>
+  );
+})()}
 }
 
 /* REVIEWS */
