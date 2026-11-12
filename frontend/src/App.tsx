@@ -56,14 +56,24 @@ function LandingPage({onLogin}:{onLogin:()=>void}){
 
 type NavItem = readonly [string,string,LucideIcon];
 const navGroups: {label:string;items:readonly NavItem[]}[] = [
-  { label: 'WORKSPACE', items: [
-    ['Overview','/',LayoutDashboard], ['Customer intelligence','/customers',Users], ['Review lab','/reviews',Search], ['Root-cause intelligence','/root-cause',ChartNoAxesCombined]
+  { label: 'STORE WORKFLOW', items: [
+    ['Store','/storefront',Receipt],
+    ['Reviews','/reviews',Search],
+    ['Complaints','/disputes',AlertTriangle],
+    ['Evidence','/evidence',FileCheck2],
+    ['Actions','/execution',Workflow],
+    ['Profit & loss','/financial-operations',WalletCards]
   ]},
-  { label: 'FINANCIAL OPERATIONS', items: [
-    ['Transactions','/transactions',WalletCards], ['Refund investigations','/refunds',ArrowDownLeft], ['Dispute center','/disputes',AlertTriangle], ['Evidence vault','/evidence',FileCheck2]
-  ]},
-  { label: 'OPERATIONS & CONTROL', items: [
-    ['Execution timeline','/execution',Workflow], ['Financial operations','/financial-operations',WalletCards], ['Customer storefront','/storefront',Receipt], ['Proof & status','/proof',ShieldCheck], ['Agreements','/agreements',FileText], ['Milestones','/milestones',BriefcaseBusiness], ['Trust & audit','/audit',ShieldCheck]
+  { label: 'OTHER WORKSPACE', items: [
+    ['Overview','/',LayoutDashboard],
+    ['Customer intelligence','/customers',Users],
+    ['Root-cause intelligence','/root-cause',ChartNoAxesCombined],
+    ['Transactions','/transactions',WalletCards],
+    ['Refund investigations','/refunds',ArrowDownLeft],
+    ['Proof & status','/proof',ShieldCheck],
+    ['Agreements','/agreements',FileText],
+    ['Milestones','/milestones',BriefcaseBusiness],
+    ['Trust & audit','/audit',ShieldCheck]
   ]}
 ] as const;
 const allNav: NavItem[] = navGroups.flatMap(group => [...group.items]);
