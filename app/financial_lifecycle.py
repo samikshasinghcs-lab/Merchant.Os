@@ -471,7 +471,7 @@ def run_tenant_complaint_clustering(body: dict | None = None, p=Depends(principa
     """Cluster and persist deterministic cluster IDs only within the caller's tenant."""
     body = body or {}
     try:
-        threshold = float(body.get("threshold", 0.28))
+        threshold = float(body.get("threshold", 0.15))
     except (TypeError, ValueError):
         raise HTTPException(400, "threshold must be a number between 0 and 1")
     if not 0.0 <= threshold <= 1.0:
