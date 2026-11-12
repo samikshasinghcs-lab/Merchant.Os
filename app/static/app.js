@@ -1161,17 +1161,16 @@ load().catch(e => {
     }
 });
 // ======================================================
-// MERCHANTOS — AG GRID REFUND MANAGEMENT
-// SAFE INTEGRATION — PRESERVES ORIGINAL WORKSPACE
-// AG GRID COMMUNITY 32.3.3
+// MERCHANTOS — AG GRID FINANCIAL OPERATIONS WORKSPACE
+// AG GRID COMMUNITY 32.3.3 — CDN / SERVER-RENDERED WORKSPACE
 // ======================================================
 
 (async function MerchantOSRefundGrid() {
     'use strict';
 
     const VERSION = '32.3.3';
+    const PREF_KEY = 'merchantos.aggrid.refunds.v2';
 
-    // 1. Load AG Grid CSS
     [
         `https://cdn.jsdelivr.net/npm/ag-grid-community@${VERSION}/styles/ag-grid.css`,
         `https://cdn.jsdelivr.net/npm/ag-grid-community@${VERSION}/styles/ag-theme-quartz.css`
@@ -1184,282 +1183,282 @@ load().catch(e => {
         }
     });
 
-    // 2. Load AG Grid JavaScript
     if (!window.agGrid) {
         await new Promise((resolve, reject) => {
             const script = document.createElement('script');
-
-            script.src =
-                `https://cdn.jsdelivr.net/npm/ag-grid-community@${VERSION}/dist/ag-grid-community.min.js`;
-
+            script.src = `https://cdn.jsdelivr.net/npm/ag-grid-community@${VERSION}/dist/ag-grid-community.min.js`;
             script.onload = resolve;
-            script.onerror = () =>
-                reject(new Error('AG Grid failed to load'));
-
+            script.onerror = () => reject(new Error('AG Grid failed to load'));
             document.head.appendChild(script);
         });
     }
 
-    // 3. Find original refund table
     const refundRows = document.getElementById('refundRows');
+    const table = refundRows && refundRows.closest('table');
+    if (!refundRows || !table || document.getElementById('refundGrid')) return;
 
-    if (!refundRows) {
-        console.error('AG Grid: refundRows element not found.');
-        return;
-    }
-
-    const table = refundRows.closest('table');
-
-    if (!table) {
-        console.error('AG Grid: original refund table not found.');
-        return;
-    }
-
-    // Prevent duplicate initialization
-    if (document.getElementById('refundGrid')) return;
-
-    // 4. Create grid wrapper
     const wrapper = document.createElement('section');
     wrapper.id = 'merchantosRefundGridSection';
-
-    const heading = document.createElement('h3');
-    heading.textContent = 'Refund management';
-
-    const subtitle = document.createElement('p');
-    subtitle.textContent =
-        'Review, filter and manage refund proposals.';
-
-    const grid = document.createElement('div');
-    grid.id = 'refundGrid';
-    grid.className = 'ag-theme-quartz';
-
-    wrapper.append(heading, subtitle, grid);
-
-    table.parentNode.insertBefore(wrapper, table);
-
-    // Keep original table hidden, NOT removed.
-    table.hidden = true;
-
-    // 5. Grid styling
-    const style = document.createElement('style');
-
-    style.textContent = `
-        #merchantosRefundGridSection {
-            margin: 20px 0;
-            padding: 18px;
-            border: 1px solid #dfe5dc;
-            border-radius: 16px;
-            background: #fff;
-        }
-
-        #merchantosRefundGridSection h3 {
-            margin: 0 0 6px;
-        }
-
-        #merchantosRefundGridSection p {
-            margin: 0 0 16px;
-            color: #68776e;
-        }
-
-        #refundGrid {
-            width: 100%;
-            height: 430px;
-        }
-
-        .ag-theme-quartz {
-            --ag-font-family: Arial, sans-serif;
-            --ag-font-size: 13px;
-            --ag-background-color: #ffffff;
-            --ag-foreground-color: #26372f;
-            --ag-header-background-color: #edf1e9;
-            --ag-header-foreground-color: #26372f;
-            --ag-border-color: #dfe5dc;
-            --ag-row-hover-color: #eef4ed;
-            --ag-header-height: 48px;
-            --ag-row-height: 56px;
-        }
-
-        .merchantos-grid-actions {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            height: 100%;
-        }
-
-        .merchantos-grid-actions button {
-            cursor: pointer;
-        }
-
-        @media (max-width: 600px) {
-            #merchantosRefundGridSection {
-                padding: 10px;
-                overflow: hidden;
-            }
-
-            #refundGrid {
-                height: 480px;
-            }
-        }
+    wrapper.innerHTML = `
+        <div class="mos-grid-heading">
+            <div>
+                <span class="mos-grid-eyebrow">AG GRID COMMUNITY · FINANCIAL OPERATIONS</span>
+                <h3>Refund operations grid</h3>
+                <p>Investigate, filter and export refund records. Provider state remains authoritative; actions require human approval.</p>
+            </div>
+            <span id="mosGridRefreshState" aria-live="polite">Connecting…</span>
+        </div>
+        <div class="mos-grid-metrics" id="mosGridMetrics">
+            <div><small>ALL RECORDS</small><b id="mosGridTotal">—</b></div>
+            <div><small>AWAITING REVIEW</small><b id="mosGridPending">—</b></div>
+            <div><small>APPROVED / SETTLED</small><b id="mosGridResolved">—</b></div>
+            <div><small>SELECTED ROWS</small><b id="mosGridSelected">0</b></div>
+        </div>
+        <div class="mos-grid-toolbar">
+            <label class="mos-grid-search">Search all columns
+                <input id="mosGridSearch" type="search" placeholder="Order, reason, status, amount…">
+            </label>
+            <button type="button" data-mos-status="ALL">All</button>
+            <button type="button" data-mos-status="PROPOSED">Proposed</button>
+            <button type="button" data-mos-status="APPROVED">Approved</button>
+            <button type="button" data-mos-status="REJECTED">Rejected</button>
+            <button type="button" id="mosGridClear">Clear filters</button>
+            <button type="button" id="mosGridExport">Export filtered CSV</button>
+            <button type="button" id="mosGridExportSelected" disabled>Export selected</button>
+            <button type="button" id="mosGridSave">Save view</button>
+            <button type="button" id="mosGridReset">Reset view</button>
+            <button type="button" id="mosGridRefresh">Refresh</button>
+        </div>
+        <div id="refundGrid" class="ag-theme-quartz" aria-label="Refund operations data grid"></div>
+        <div id="mosGridFeedback" role="status" aria-live="polite"></div>
     `;
 
+    table.parentNode.insertBefore(wrapper, table);
+    table.hidden = true;
+
+    const style = document.createElement('style');
+    style.textContent = `
+        #merchantosRefundGridSection{margin:20px 0;padding:18px;border:1px solid #dfe5dc;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(30,50,35,.05)}
+        #merchantosRefundGridSection .mos-grid-heading{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+        #merchantosRefundGridSection h3{margin:5px 0}
+        #merchantosRefundGridSection p{margin:0 0 14px;color:#68776e;font-size:13px}
+        #merchantosRefundGridSection .mos-grid-eyebrow{font-size:10px;font-weight:800;letter-spacing:1.2px;color:#26734b}
+        #merchantosRefundGridSection .mos-grid-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:14px 0}
+        #merchantosRefundGridSection .mos-grid-metrics>div{padding:12px;border:1px solid #e3e9e1;border-radius:10px;background:#f8faf7}
+        #merchantosRefundGridSection .mos-grid-metrics small{display:block;color:#68776e;font-size:9px;font-weight:800;letter-spacing:.6px}
+        #merchantosRefundGridSection .mos-grid-metrics b{display:block;margin-top:5px;font-size:21px;color:#203b2b}
+        #merchantosRefundGridSection .mos-grid-toolbar{display:flex;align-items:end;gap:7px;flex-wrap:wrap;margin:14px 0}
+        #merchantosRefundGridSection .mos-grid-toolbar button{padding:8px 10px;border:1px solid #dfe5dc;border-radius:8px;background:#f7f9f6;color:#31483a;font-size:11px;font-weight:700;cursor:pointer}
+        #merchantosRefundGridSection .mos-grid-toolbar button:hover:not(:disabled){border-color:#26734b;background:#edf5ed}
+        #merchantosRefundGridSection .mos-grid-toolbar button:disabled{opacity:.45;cursor:not-allowed}
+        #merchantosRefundGridSection .mos-grid-search{display:grid;gap:4px;min-width:190px;flex:1;color:#68776e;font-size:10px;font-weight:700}
+        #merchantosRefundGridSection .mos-grid-search input{min-height:34px;padding:7px 10px;border:1px solid #dfe5dc;border-radius:8px}
+        #merchantosRefundGridSection #refundGrid{width:100%;height:490px}
+        #merchantosRefundGridSection #mosGridFeedback{min-height:18px;margin-top:8px;color:#68776e;font-size:11px}
+        #merchantosRefundGridSection .ag-theme-quartz{--ag-font-family:Arial,sans-serif;--ag-font-size:12px;--ag-background-color:#fff;--ag-foreground-color:#26372f;--ag-header-background-color:#edf1e9;--ag-header-foreground-color:#26372f;--ag-border-color:#dfe5dc;--ag-row-hover-color:#eef4ed;--ag-header-height:44px;--ag-row-height:52px}
+        #merchantosRefundGridSection .merchantos-grid-actions{display:flex;align-items:center;gap:5px;height:100%}
+        #merchantosRefundGridSection .merchantos-grid-actions button{cursor:pointer}
+        @media(max-width:700px){#merchantosRefundGridSection{padding:10px}#merchantosRefundGridSection .mos-grid-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}#merchantosRefundGridSection #refundGrid{height:520px}#merchantosRefundGridSection .mos-grid-heading{display:block}}
+    `;
     document.head.appendChild(style);
 
-    // 6. Create AG Grid
-    const gridApi = window.agGrid.createGrid(grid, {
-        columnDefs: [
-            {
-                field: 'order_id',
-                headerName: 'ORDER',
-                minWidth: 130,
-                flex: 1
-            },
-            {
-                field: 'reason',
-                headerName: 'REASON',
-                minWidth: 140,
-                flex: 1
-            },
-            {
-                headerName: 'AMOUNT',
-                minWidth: 120,
-                valueGetter: params => {
-                    const row = params.data || {};
-
-                    return new Intl.NumberFormat(
-                        row.currency === 'INR' ? 'en-IN' : 'en-US',
-                        {
-                            style: 'currency',
-                            currency: row.currency || 'INR',
-                            maximumFractionDigits: 2
-                        }
-                    ).format(Number(row.amount || 0));
-                }
-            },
-            {
-                field: 'status',
-                headerName: 'STATUS',
-                minWidth: 120,
-                cellRenderer: params => {
-                    const badge = document.createElement('span');
-                    badge.textContent = params.value || 'UNKNOWN';
-                    badge.className =
-                        'status s-' +
-                        String(params.value || '')
-                            .toLowerCase()
-                            .replace(/[^a-z0-9_-]/g, '');
-
-                    return badge;
-                }
-            },
-            {
-                headerName: 'ACTIONS',
-                minWidth: 190,
-                sortable: false,
-                filter: false,
-                cellRenderer: params => {
-                    const actions = document.createElement('div');
-                    actions.className = 'merchantos-grid-actions';
-
-                    const row = params.data || {};
-
-                    if (
-                        String(row.status).toUpperCase() === 'PROPOSED'
-                    ) {
-                        const approveButton =
-                            document.createElement('button');
-
-                        approveButton.type = 'button';
-                        approveButton.className = 'mini';
-                        approveButton.textContent = 'Approve';
-
-                        approveButton.addEventListener('click', async () => {
-                            approveButton.disabled = true;
-
-                            try {
-                                await approve(row.id);
-                                await refreshRefundGrid();
-                            } finally {
-                                approveButton.disabled = false;
-                            }
-                        });
-
-                        const rejectButton =
-                            document.createElement('button');
-
-                        rejectButton.type = 'button';
-                        rejectButton.className = 'mini reject';
-                        rejectButton.textContent = 'Reject';
-
-                        rejectButton.addEventListener('click', async () => {
-                            rejectButton.disabled = true;
-
-                            try {
-                                await reject(row.id);
-                                await refreshRefundGrid();
-                            } finally {
-                                rejectButton.disabled = false;
-                            }
-                        });
-
-                        actions.append(approveButton, rejectButton);
-                    } else {
-                        actions.textContent = row.paypal_id || '—';
-                    }
-
-                    return actions;
-                }
-            }
-        ],
-
-        defaultColDef: {
-            sortable: true,
-            filter: true,
-            resizable: true
-        },
-
-        pagination: true,
-        paginationPageSize: 10,
-        paginationPageSizeSelector: [10, 20, 50],
-        animateRows: true,
-        rowData: []
-    });
-
-    // 7. Fetch refund data using original API helper
+    let refunds = [];
     let refreshing = false;
+    let saveTimer = null;
 
-    async function refreshRefundGrid() {
-        if (refreshing) return;
-
-        refreshing = true;
-
-        try {
-            // IMPORTANT: api() already adds /api.
-            const refunds = await api('/refunds');
-
-            if (!Array.isArray(refunds)) {
-                throw new Error('Invalid refunds response.');
+    function savePreferences() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+            try {
+                localStorage.setItem(PREF_KEY, JSON.stringify({
+                    columns: gridApi.getColumnState(),
+                    filters: gridApi.getFilterModel(),
+                    quickSearch: document.getElementById('mosGridSearch').value
+                }));
+                feedback('View preferences saved on this device.');
+            } catch (_) {
+                feedback('Browser storage unavailable; current grid view remains active.');
             }
-
-            gridApi.setGridOption('rowData', refunds);
-
-        } catch (error) {
-            console.error('Refund grid refresh failed:', error);
-        } finally {
-            refreshing = false;
-        }
+        }, 250);
     }
 
-    // 8. Initial refresh
+    function feedback(message) {
+        const el = document.getElementById('mosGridFeedback');
+        if (el) el.textContent = message;
+    }
+
+    function updateMetrics(rows) {
+        const count = status => rows.filter(row => String(row.status || '').toUpperCase() === status).length;
+        document.getElementById('mosGridTotal').textContent = rows.length;
+        document.getElementById('mosGridPending').textContent = count('PROPOSED');
+        document.getElementById('mosGridResolved').textContent =
+            rows.filter(row => ['APPROVED', 'COMPLETED', 'REFUNDED'].includes(String(row.status || '').toUpperCase())).length;
+    }
+
+    const currencyFormatter = params => {
+        const row = params.data || {};
+        try {
+            return new Intl.NumberFormat(row.currency === 'INR' ? 'en-IN' : 'en-US', {
+                style: 'currency', currency: row.currency || 'INR', maximumFractionDigits: 2
+            }).format(Number(params.value || 0));
+        } catch (_) { return String(params.value ?? '—'); }
+    };
+
+    const gridOptions = {
+        columnDefs: [
+            { field: 'order_id', headerName: 'ORDER', pinned: 'left', minWidth: 140 },
+            { field: 'reason', headerName: 'REASON', minWidth: 160, flex: 1 },
+            { field: 'amount', headerName: 'AMOUNT', type: 'rightAligned', minWidth: 125, valueFormatter: currencyFormatter, filter: 'agNumberColumnFilter' },
+            { field: 'currency', headerName: 'CURRENCY', width: 100 },
+            { field: 'status', headerName: 'STATUS', minWidth: 125, cellRenderer: params => {
+                const badge = document.createElement('span');
+                badge.textContent = params.value || 'UNKNOWN';
+                badge.className = 'status s-' + String(params.value || '').toLowerCase().replace(/[^a-z0-9_-]/g, '');
+                return badge;
+            }},
+            { field: 'risk_severity', headerName: 'RISK', minWidth: 115, cellRenderer: params => {
+                const badge = document.createElement('span');
+                badge.textContent = params.value || 'UNASSESSED';
+                badge.className = 'status s-' + String(params.value || 'unknown').toLowerCase().replace(/[^a-z0-9_-]/g, '');
+                return badge;
+            }},
+            { field: 'risk_score', headerName: 'RISK SCORE', minWidth: 110, filter: 'agNumberColumnFilter', valueFormatter: p => p.value == null ? '—' : Number(p.value).toFixed(2) },
+            { field: 'risk_baseline_orders', headerName: 'BASELINE N', minWidth: 115, filter: 'agNumberColumnFilter' },
+            { field: 'paypal_status', headerName: 'PAYPAL STATUS', minWidth: 135 },
+            { field: 'created_at', headerName: 'CREATED', minWidth: 165 },
+            { field: 'risk_signals', headerName: 'RISK SIGNALS', minWidth: 220, valueFormatter: p => Array.isArray(p.value) ? p.value.join(' · ') : '' },
+            { field: 'id', headerName: 'PROPOSAL ID', minWidth: 170 },
+            { headerName: 'ACTIONS', pinned: 'right', minWidth: 205, sortable: false, filter: false, cellRenderer: params => {
+                const actions = document.createElement('div');
+                actions.className = 'merchantos-grid-actions';
+                const row = params.data || {};
+                const addButton = (text, className, handler) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = className;
+                    button.textContent = text;
+                    button.addEventListener('click', async event => {
+                        event.stopPropagation();
+                        button.disabled = true;
+                        try { await handler(); }
+                        catch (error) { feedback(error.message || 'Action failed.'); }
+                        finally { button.disabled = false; }
+                    });
+                    actions.appendChild(button);
+                };
+                if (String(row.status || '').toUpperCase() === 'PROPOSED') {
+                    addButton('Investigate', 'mini', async () => { await investigateRefund(row.id); });
+                    addButton('Approve', 'mini', async () => { await approve(row.id); await refreshRefundGrid(); });
+                    addButton('Reject', 'mini reject', async () => { await reject(row.id); await refreshRefundGrid(); });
+                } else {
+                    actions.textContent = row.paypal_id || row.paypal_status || '—';
+                }
+                return actions;
+            }}
+        ],
+        defaultColDef: { sortable: true, filter: true, floatingFilter: true, resizable: true, minWidth: 100 },
+        rowSelection: 'multiple',
+        suppressRowClickSelection: true,
+        pagination: true,
+        paginationPageSize: 10,
+        paginationPageSizeSelector: [10, 25, 50, 100],
+        animateRows: true,
+        getRowId: params => String(params.data.id),
+        onSelectionChanged: event => {
+            const count = event.api.getSelectedRows().length;
+            document.getElementById('mosGridSelected').textContent = count;
+            document.getElementById('mosGridExportSelected').disabled = count === 0;
+        },
+        onFilterChanged: savePreferences,
+        onSortChanged: savePreferences,
+        onColumnMoved: savePreferences,
+        onColumnVisible: savePreferences,
+        onColumnResized: event => { if (event.finished) savePreferences(); },
+        onRowClicked: event => {
+            if (event.data && typeof window.investigateRefund === 'function') {
+                window.investigateRefund(event.data.id);
+            }
+        },
+        rowData: []
+    };
+
+    const grid = document.getElementById('refundGrid');
+    const gridApi = window.agGrid.createGrid(grid, gridOptions);
+
+    function applyStatus(status) {
+        const filters = status === 'ALL' ? null : {
+            status: { filterType: 'text', type: 'equals', filter: status }
+        };
+        gridApi.setFilterModel(filters);
+    }
+
+    document.getElementById('mosGridSearch').addEventListener('input', event => {
+        gridApi.setGridOption('quickFilterText', event.target.value);
+        savePreferences();
+    });
+    document.querySelectorAll('[data-mos-status]').forEach(button => {
+        button.addEventListener('click', () => applyStatus(button.dataset.mosStatus));
+    });
+    document.getElementById('mosGridClear').addEventListener('click', () => {
+        gridApi.setFilterModel(null);
+        document.getElementById('mosGridSearch').value = '';
+        gridApi.setGridOption('quickFilterText', '');
+        feedback('All grid filters cleared.');
+    });
+    document.getElementById('mosGridExport').addEventListener('click', () => {
+        gridApi.exportDataAsCsv({ fileName: 'merchantos-refund-operations.csv' });
+    });
+    document.getElementById('mosGridExportSelected').addEventListener('click', () => {
+        gridApi.exportDataAsCsv({ onlySelected: true, fileName: 'merchantos-selected-refunds.csv' });
+    });
+    document.getElementById('mosGridSave').addEventListener('click', savePreferences);
+    document.getElementById('mosGridReset').addEventListener('click', () => {
+        gridApi.resetColumnState();
+        gridApi.setFilterModel(null);
+        gridApi.deselectAll();
+        document.getElementById('mosGridSearch').value = '';
+        gridApi.setGridOption('quickFilterText', '');
+        try { localStorage.removeItem(PREF_KEY); } catch (_) {}
+        feedback('Grid layout reset.');
+    });
+    document.getElementById('mosGridRefresh').addEventListener('click', refreshRefundGrid);
+
+    function refreshRefundGrid() {
+        if (refreshing) return;
+        refreshing = true;
+        document.getElementById('mosGridRefreshState').textContent = 'Refreshing…';
+        return api('/refunds').then(data => {
+            if (!Array.isArray(data)) throw new Error('Invalid refunds response.');
+            refunds = data;
+            gridApi.setGridOption('rowData', refunds);
+            updateMetrics(refunds);
+            document.getElementById('mosGridRefreshState').textContent =
+                'Updated ' + new Date().toLocaleTimeString();
+        }).catch(error => {
+            document.getElementById('mosGridRefreshState').textContent = 'Refresh failed';
+            feedback(error.message || 'Could not refresh refund data.');
+            console.error('Refund grid refresh failed:', error);
+        }).finally(() => { refreshing = false; });
+    }
+
+    try {
+        const saved = JSON.parse(localStorage.getItem(PREF_KEY) || 'null');
+        if (saved) {
+            if (Array.isArray(saved.columns)) gridApi.applyColumnState({ state: saved.columns, applyOrder: true });
+            if (saved.filters) gridApi.setFilterModel(saved.filters);
+            if (typeof saved.quickSearch === 'string') {
+                document.getElementById('mosGridSearch').value = saved.quickSearch;
+                gridApi.setGridOption('quickFilterText', saved.quickSearch);
+            }
+        }
+    } catch (_) { /* ignore invalid stored preferences */ }
+
     await refreshRefundGrid();
-
-    // 9. Keep grid synchronized
     window.merchantOSRefreshRefundGrid = refreshRefundGrid;
-
     setInterval(refreshRefundGrid, 30000);
-
-    console.log('MerchantOS AG Grid initialized.');
-
+    console.log('MerchantOS AG Grid financial operations workspace initialized.');
 })();
+
 // ======================================================
 // MERCHANTOS — WORKFLOW REPAIR
 // Inline records, automatic milestone selection,
