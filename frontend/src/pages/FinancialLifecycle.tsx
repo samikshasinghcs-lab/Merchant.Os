@@ -121,7 +121,8 @@ export default function FinancialLifecycle() {
     setMessage('');
     try {
       const result = await api(path, { method, body: JSON.stringify(body) });
-      setMessage(JSON.stringify(result));
+      const summary = [result.message, result.note, result.status, result.decision, result.id ? `Reference ${String(result.id).slice(0, 12)}` : ''].filter(Boolean).join(' · ');
+      setMessage(summary || 'Request completed.');
       await load();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Request failed.');
@@ -301,7 +302,7 @@ export default function FinancialLifecycle() {
         <h4>Product and weekly roll-ups</h4>
         <div className="fl-grid">{[...productRows, ...weeklyRows].map(([name, value], index) => <article className="fl-invest-box" key={`${index}-${name}`}><b>{name}</b><p>{asObject(value).case_count ?? 0} cases · estimated {money(asObject(value).estimated_loss)}</p></article>)}</div>
         <h4>Return-rate anomaly signals</h4>
-        <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{JSON.stringify(intel?.anomaly_signals ?? {}, null, 2)}</pre>
+        <div className="fl-invest-grid">{Object.entries(asObject(asObject(intel?.anomaly_signals).customer)).map(([customerId, value]) => { const signal = asObject(value); return <article className="fl-invest-box" key={customerId}><b>{customerId}</b><p>{signal.complaint_orders ?? 0} complaints / {signal.orders ?? 0} orders</p><p>Complaint rate: {(Number(signal.rate ?? 0) * 100).toFixed(1)}%</p><p>Z-score: {signal.z_score ?? '—'} · Isolation Forest: {signal.isolation_forest_score ?? 'Not calculated'}</p><small className="fl-muted">Exploratory signal only; not proof of abuse.</small></article>; })}</div><p className="fl-muted">{asObject(intel?.anomaly_signals).method ?? 'No anomaly method reported.'}</p>
         <h4>Repeat-returner signals</h4>
         {asArray(intel?.repeat_returners).length ? asArray(intel?.repeat_returners).map(item => <p key={String(item.customer_id)}>{item.customer_id} · {item.case_count} cases · signal only</p>) : <p className="fl-muted">No repeat-returner signals in available records.</p>}
       </section>
@@ -310,7 +311,7 @@ export default function FinancialLifecycle() {
         <h3><ShieldCheck size={17} /> Execution-to-ledger reconciliation</h3>
         <p className="fl-muted">Compares MerchantOS PayPal execution records with linked journal entries. Not bank reconciliation.</p>
         <div className="fl-grid"><div><b>{recon?.matched ?? 0}</b><div className="fl-muted">Matched</div></div><div><b>{recon?.unmatched ?? 0}</b><div className="fl-muted">Missing journal link</div></div></div>
-        <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: 12 }}>{JSON.stringify(recon?.items ?? [], null, 2)}</pre>
+        {asArray(recon?.items).length ? <div className="fl-scroll"><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}><thead><tr><th align="left">Execution</th><th align="left">Journal</th><th align="left">Status</th><th align="right">Amount</th></tr></thead><tbody>{asArray(recon?.items).map((item, index) => <tr key={String(item.id ?? index)}><td>{item.execution_id ?? item.refund_id ?? item.id ?? '—'}</td><td>{item.journal_entry_id ?? item.journal_id ?? 'Missing'}</td><td>{item.status ?? (item.matched ? 'Matched' : 'Unmatched')}</td><td align="right">{item.currency ?? ''} {item.amount ?? '—'}</td></tr>)}</tbody></table></div> : <p className="fl-muted">No PayPal execution records are available to reconcile yet.</p>}
       </section>
       <p className="fl-muted">Refunds remain in the existing separate PayPal approval and execution workflow. This screen does not independently move money or mutate warehouse stock.</p>
     </main>
@@ -596,7 +597,7 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
           <button className="fl-btn" disabled={busy || !file || evidenceDescription.trim().length < 5}>Upload & verify</button>
         </form>
         <div className="fl-invest-grid">{evidence.map(item => <article className="fl-invest-box" key={String(item.id)}><b>✓ {item.type}</b>{previews[String(item.id)] && <img src={previews[String(item.id)]} alt={`Evidence ${item.type}`} style={{ display: 'block', maxWidth: '100%', maxHeight: 150, objectFit: 'contain', margin: '8px 0' }} />}<p>{item.description}</p><small className="fl-muted">{item.integrity_status} · SHA-256 {String(item.sha256 || 'not available').slice(0, 16)}…</small></article>)}</div>
-        {!evidence.length && <p className="fl-muted">No evidence uploaded. Decision controls remain disabled until evidence is attached.</p>}
+        {!evidence.length && <div className="fl-notice" style={{ marginTop: 10 }}>Decision locked: upload at least one evidence file, add a decision note of 5+ characters, and choose a reason code. The server also enforces its own checks.</div>}
       </article>
 
       <article className="fl-invest-box">
@@ -640,10 +641,10 @@ function CaseInvestigation({ selected, onRefresh, onMessage, onError }: Investig
           <button className="fl-btn" disabled={!canDecide} onClick={() => void decide('APPROVE')}>Approve / propose</button>
           <button className="fl-btn" style={{ background: '#991b1b' }} disabled={!canDecide} onClick={() => void decide('REJECT')}>Reject</button>
         </div>
-        <small className="fl-muted">Approval is a human proposal only. Refunds still require separate reconciliation, independent approver and PayPal Sandbox execution.</small>
+        <small className="fl-muted">{!evidence.length ? 'Locked: attach evidence first.' : !reasonCode ? 'Locked: choose a reason code.' : decisionNote.trim().length < 5 ? 'Locked: enter a decision note (at least 5 characters).' : 'Ready for human review.'} Approval is a proposal only. Refunds still require separate reconciliation, independent approver and PayPal Sandbox execution.</small>
         {['RETURN', 'REFUND'].includes(String(selected.case_type)) && <div className="fl-invest-box" style={{ marginTop: 12 }}>
           <h4>PayPal Sandbox refund lifecycle</h4>
-          {!approval?.id && <button type="button" className="fl-btn" disabled={busy || caseData.status !== 'UNDER_REVIEW'} onClick={() => void requestRefundApproval()}>Create linked refund request</button>}
+          {!approval?.id && <><button type="button" className="fl-btn" disabled={busy || caseData.status !== 'UNDER_REVIEW'} onClick={() => void requestRefundApproval()}>Create linked refund request</button>{caseData.status !== 'UNDER_REVIEW' && <small className="fl-muted">Available after the case reaches UNDER REVIEW. Current case status: {caseData.status ?? 'unknown'}.</small>}</>}
           {approval?.id && <>
             <p className="fl-muted">Request {String(approval.id).slice(0, 8)} · {approval.status} · {approval.currency ?? detail.order?.currency ?? ''} {approval.amount ?? selected.requested_amount}</p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
